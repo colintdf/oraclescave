@@ -511,7 +511,8 @@
                 const randomX = Math.floor(Math.random() * 100);  // Horizontal offset (0 to 100%)
                 const randomY = Math.floor(Math.random() * 100);  // Vertical offset (0 to 100%)
                 const randomRotation = Math.floor(Math.random() * 15) - 7; // Rotation to make the chunk jagged
-                const randomColor = 'black';  // Rock-like color
+                const randomValue = Math.floor(Math.random() * 10);
+                const randomColor = `rgb(${randomValue}, ${randomValue}, ${randomValue})`;  // Shades of very dark grey
 
                 wallChunk.style.width = `${randomWidth}px`;
                 wallChunk.style.height = `${randomHeight}px`;
@@ -750,8 +751,12 @@
             // if the room contains a sleeping enemy, there is a 50% chance of waking it up. If it wakes up its status will change to one of the others - could be angry, hungry, curious, uninterested 
             if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
                 if (Math.random() < 0.5) {
-                    alert('The enemy wakes up!');
-                    currentRoom.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
+                    alert('The '+currentRoom.enemy+' wakes up!');
+                    let newStatus;
+                    do {
+                        newStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
+                    } while (newStatus === 'sleeping');
+                    currentRoom.enemyStatus = newStatus;
                         renderRoom();
                         return;
                 }
