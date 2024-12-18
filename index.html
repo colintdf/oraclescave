@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Explorer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #111;
+            color: white;
+            margin: 0;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+    
+        .wall-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+    
+        .wall-chunk {
+            position: absolute;
+            background-color: #888; /* Default color; overridden by random color */
+            border-radius: 5px; /* Optional: round edges of the chunks */
+        }
+    
+        h1 {
+            margin: 10px 0;
+        }
+    
+        #game {
+            max-width: 1280px;
+            aspect-ratio: 16 / 9;
+            width: 100%;
+            margin: 20px auto;
+            position: relative;
+            background-color: #222;
+            border: 5px solid #666;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+    
+        .wall, .ladder {
+            position: absolute;
+            background-color: #444;
+        }
+    
+        .ladder {
+            background-color: gold;
+        }
+    
+        .wall.up, .ladder.up {
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 10px;
+        }
+    
+        .wall.down, .ladder.down {
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 10px;
+        }
+    
+        .wall.left, .ladder.left {
+            left: 0;
+            top: 0;
+            width: 10px;
+            height: 100%;
+        }
+    
+        .wall.right, .ladder.right {
+            right: 0;
+            top: 0;
+            width: 10px;
+            height: 100%;
+        }
+    
+        .enemy {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+        }
+    
+        .artifact {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+        }
+    
+        #mini-map {
+            display: grid;
+            grid-template-columns: repeat(10, 32px);
+            grid-template-rows: repeat(10, 18px);
+            gap: 2px;
+            margin: 10px auto;
+            width: max-content;
+        }
+    
+        .mini-room {
+            width: 32px;
+            height: 18px;
+            background-color: #333;
+            border: 1px solid #222;
+            position: relative;
+        }
+    
+        .mini-room.discovered {
+            background-color: #555;
+        }
+    
+        .mini-room.current {
+            background-color: gold;
+        }
+    
+        .mini-exit {
+            position: absolute;
+            background-color: black;
+            width: 4px;
+            height: 4px;
+        }
+    
+        .mini-exit.up {
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    
+        .mini-exit.down {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+    
+        .mini-exit.left {
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    
+        .mini-exit.right {
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    
+        .current-room {
+            border: 3px solid gold;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+        }
+    
+        #mini-map-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px auto;
+        }
+    
+        #description-panel,
+        #inventory-panel {
+            width: 300px;
+            padding: 10px;
+            background-color: #333;
+            border: 2px solid #555;
+            border-radius: 5px;
+            margin-right: 20px;
+            text-align: left;
+        }
+    
+        #description-panel h2,
+        #inventory-panel h2 {
+            margin: 0;
+            font-size: 18px;
+            color: gold;
+        }
+    
+        #description-panel p,
+        #inventory-panel p {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        #status-panel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px auto;
+        }
+
+        #status-panel div {
+            margin: 0 10px;
+            font-size: 18px;
+        }
+
+        #status-panel h2 {
+            margin: 0;
+            font-size: 24px;
+            color: gold;
+        }
+
+        #status-panel .health-bar-container,
+        #status-panel .health-bar,
+        #status-panel .health-fill {
+            margin: 0; /* Ensure margin doesn't affect health bar */
+        }
+    
+        /* Mobile breakpoint: stack mini-map container elements */
+        @media (max-width: 1000px) {
+            #mini-map-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+    
+            #description-panel,
+            #inventory-panel {
+                margin: 10px auto;
+                width: calc(100% - 40px); /* Make it more responsive for smaller screens */
+            }
+    
+            #mini-map {
+                margin: 10px auto;
+            }
+        }
+    </style>
+
+
+    
+</head>
+<body>
+    <h1>Dungeon Explorer</h1>
+    <div id="status-panel"></div>
+    <div id="game"></div>
+    <div id="mini-map-container">
+        <div id="description-panel">
+            <h2>Cave Description</h2>
+            <p id="description">An unknown cave...</p>
+        </div>
+        <div id="mini-map"></div>
+        <div id="inventory-panel">
+            <h2>Inventory</h2>
+            <p id="inventory">You are carrying nothing.</p>
+        </div>
+    </div>    <div id="info">Use Arrow Keys to Move</div>
+
+    <script>
+        const GRID_SIZE = 10;
+        const TOTAL_SCREENS = GRID_SIZE * GRID_SIZE;
+        const DIRECTIONS = {
+            UP: [0, -1],
+            DOWN: [0, 1],
+            LEFT: [-1, 0],
+            RIGHT: [1, 0]
+        };
+
+        const ENEMY_STATUSES = ["sleeping", "uninterested", "angry", "hungry", "curious"];
+
+        const ENEMY_TYPES = [
+            { name: "Troll", health: 100, strength: 10, maxCount: 10 },
+            { name: "Cyclops", health: 200, strength: 40, maxCount: 5 },
+            { name: "Minotaur", health: 300, strength: 60, maxCount: 3 },
+            { name: "Goblin", health: 50, strength: 10, maxCount: 15 },
+            { name: "Orc", health: 150, strength: 30, maxCount: 7 },
+            { name: "Wraith", health: 250, strength: 50, maxCount: 4 },
+            { name: "Demon", health: 500, strength: 70, maxCount: 2 }
+        ];
+        const BOSS_TYPES = [
+            { name: "Dragon", health: 1000, strength: 100 },
+            { name: "Lich King", health: 1000, strength: 100 },
+            { name: "Demon Lord", health: 1000, strength: 100 },
+            { name: "Hydra", health: 1000, strength: 100 }
+        ];
+        const FOOD_ITEMS = [
+            { name: "apple", health: 50 },
+            { name: "bread", health: 30 },
+            { name: "cheese", health: 40 },
+            { name: "meat", health: 50 },
+        ]; 
+        const HEALTH_ITEMS = [
+            { name: "bandage", health: 100 },
+            { name: "potion", health: 200 },
+            { name: "elixir", health: 500 },
+            { name: "herb", health: 50 }
+        ]
+        const SHIELD_ITEMS = [
+            { name: "Wooden Shield", strength: 20 },
+            { name: "Iron Shield", strength: 40 },
+            { name: "Steel Shield", strength: 60 },
+            { name: "Golden Shield", strength: 80 },
+            { name: "Diamond Shield", strength: 100 }
+        ];
+
+        const WEAPON_ITEMS = [
+            { name: "Wooden Sword", strength: 20, uses: 10 },
+            { name: "Iron Sword", strength: 40, uses: 20 },
+            { name: "Steel Sword", strength: 60, uses: 25 },
+            { name: "Golden Sword", strength: 80, uses: 30 },
+            { name: "Diamond Sword", strength: 100, uses: 10000 },
+            { name: "Battle Axe", strength: 50, uses: 15 },
+            { name: "War Hammer", strength: 70, uses: 20 },
+            { name: "Magic Staff", strength: 90, uses: 10 },
+            { name: "Crossbow", strength: 60, uses: 20 },
+            { name: "Throwing Knives", strength: 30, uses: 5 },
+            { name: "Asterion's Wrath", strength: 1000, uses: 1 } // Extremely powerful, one-time use
+        ];
+
+        const ARTIFACTS = ["Sword of Power", "Shield of Ages", "Ring of Fate", "Amulet of Souls"];
+
+        const dungeon = Array.from({ length: TOTAL_SCREENS }, () => ({
+            exits: [],
+            discovered: false,
+            enemy: null,
+            enemyHealth: null,
+            enemyStrength: null,
+            isBoss: false,
+            artifact: null,
+            hasArtifact: false
+        }));
+        let currentX = GRID_SIZE - 1, currentY = GRID_SIZE - 1; 
+        let player = 
+            {
+                'name': 'Player 1',
+                'inventory': {
+                    'food': [],
+                    'weapon': [],
+                    'shield': [],
+                    'artifacts': [],
+                    'health': [
+                        { 'name': 'bandage', 'quantity': 10 }
+                    ]
+                },
+                'health': 250,
+                'max-health' : 500,
+                'weaponstrength': 10,
+                'shieldstrength': 10
+            };
+        
+   
+        function isInBounds(x, y) {
+            return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
+        }
+
+        function getIndex(x, y) {
+            return y * GRID_SIZE + x;
+        }
+
+        function addExit(x1, y1, x2, y2) {
+            const room1 = dungeon[getIndex(x1, y1)];
+            const room2 = dungeon[getIndex(x2, y2)];
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+
+            if (dx === 0 && dy === -1) { room1.exits.push('UP'); room2.exits.push('DOWN'); }
+            if (dx === 0 && dy === 1) { room1.exits.push('DOWN'); room2.exits.push('UP'); }
+            if (dx === -1 && dy === 0) { room1.exits.push('LEFT'); room2.exits.push('RIGHT'); }
+            if (dx === 1 && dy === 0) { room1.exits.push('RIGHT'); room2.exits.push('LEFT'); }
+        }
+
+        function generateMaze() {
+            const stack = [];
+            const visited = new Set();
+            let x = GRID_SIZE - 1, y = GRID_SIZE - 1;
+            visited.add(`${x},${y}`);
+            stack.push({ x, y });
+
+            while (stack.length > 0) {
+                const current = stack[stack.length - 1];
+                const { x, y } = current;
+
+                const neighbors = [];
+                for (const [_, [dx, dy]] of Object.entries(DIRECTIONS)) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (isInBounds(nx, ny) && !visited.has(`${nx},${ny}`)) {
+                        neighbors.push({ x: nx, y: ny });
+                    }
+                }
+
+                if (neighbors.length > 0) {
+                    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    addExit(x, y, next.x, next.y);
+                    visited.add(`${next.x},${next.y}`);
+                    stack.push(next);
+                } else {
+                    stack.pop();
+                }
+            }
+        }
+
+        function placeEnemies() {
+            const bossPositions = new Set();
+            while (bossPositions.size < 4) {
+                const pos = Math.floor(Math.random() * TOTAL_SCREENS);
+                if (pos !== 0 && pos !== TOTAL_SCREENS - 1) {
+                    bossPositions.add(pos);
+                    const bossIndex = bossPositions.size - 1;
+                    dungeon[pos].isBoss = true;
+                    dungeon[pos].enemy = BOSS_TYPES[bossIndex].name;
+                    dungeon[pos].artifact = ARTIFACTS[bossIndex];
+                    // add health to boss
+                    dungeon[pos].enemyHealth = BOSS_TYPES[bossIndex].health;
+                    dungeon[pos].enemyMaxHealth = BOSS_TYPES[bossIndex].health;
+                    dungeon[pos].enemyStrength = BOSS_TYPES[bossIndex].strength;
+                    // status is always angry
+                    dungeon[pos].enemyStatus = 'angry';
+                    console.log('Placed boss', dungeon[pos].enemy, 'in room', pos);
+                }
+            }
+
+            dungeon.forEach((room, index) => {
+                if (!room.isBoss && index !== 0 && index !== TOTAL_SCREENS - 1) {
+                    if (Math.random() < 0.5) {
+                        var randomEnemy = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
+                        var enemyCount = dungeon.filter(r => r.enemy === randomEnemy.name).length;
+                        if (enemyCount < randomEnemy.maxCount) {
+                            room.enemy = randomEnemy.name;
+                            room.enemyHealth = randomEnemy.health;
+                            room.enemyMaxHealth = randomEnemy.health;
+                            room.enemyStrength = randomEnemy.strength;
+                            room.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
+                            console.log('Placed', room.enemyStatus, room.enemy, 'in room', index, 'there are', enemyCount + 1, 'of them');
+                        }
+                    }
+                }
+            });
+
+        
+        }
+
+        function renderRoom() {
+        
+            const gameDiv = document.getElementById('game');
+            const descriptionDiv = document.getElementById('description');
+            gameDiv.innerHTML = '';  // Clear previous room
+            console.log(getIndex(currentX, currentY));
+            const currentRoom = dungeon[getIndex(currentX, currentY)];
+            currentRoom.discovered = true;
+            // if storedExits exists, restore the exits
+            if (currentRoom.storedExits) {
+                currentRoom.exits = currentRoom.storedExits;
+                currentRoom.storedExits = null;
+            }
+            console.log(currentRoom);
+
+            // Helper function to create a jagged rocky wall at the edges of the room
+            function createRockyWall(direction) {
+            const wallContainer = document.createElement('div');
+            wallContainer.className = `wall-container ${direction.toLowerCase()}`;
+            wallContainer.style.position = 'absolute';
+
+            // Set position based on direction (top, bottom, left, right)
+            if (direction === 'UP') {
+                wallContainer.style.top = '-30px';
+                wallContainer.style.left = '0';
+                wallContainer.style.width = '100%';
+                wallContainer.style.height = '50px';
+            } else if (direction === 'DOWN') {
+                wallContainer.style.bottom = '0';
+                wallContainer.style.left = '0';
+                wallContainer.style.width = '100%';
+                wallContainer.style.height = '50px';
+            } else if (direction === 'LEFT') {
+                wallContainer.style.top = '0';
+                wallContainer.style.left = '-20px';
+                wallContainer.style.width = '50px';
+                wallContainer.style.height = '100%';
+            } else if (direction === 'RIGHT') {
+                wallContainer.style.top = '0';
+                wallContainer.style.right = '0';
+                wallContainer.style.width = '50px';
+                wallContainer.style.height = '100%';
+            }
+
+            // Add jagged wall chunks (irregular pieces of rock)
+            const numChunks = 1000;  // Number of "chunks" per wall (adjustable)
+            for (let i = 0; i < numChunks; i++) {
+                const wallChunk = document.createElement('div');
+                wallChunk.className = 'wall-chunk';
+
+                // Each chunk will have a random width, height, and position to simulate a jagged rock
+                const randomWidth = Math.floor(Math.random() * 30) + 10;  // Width of the chunk
+                const randomHeight = Math.floor(Math.random() * 20) + 10; // Height of the chunk
+                const randomX = Math.floor(Math.random() * 100);  // Horizontal offset (0 to 100%)
+                const randomY = Math.floor(Math.random() * 100);  // Vertical offset (0 to 100%)
+                const randomRotation = Math.floor(Math.random() * 15) - 7; // Rotation to make the chunk jagged
+                const randomColor = 'black';  // Rock-like color
+
+                wallChunk.style.width = `${randomWidth}px`;
+                wallChunk.style.height = `${randomHeight}px`;
+                wallChunk.style.position = 'absolute';
+                wallChunk.style.left = `${randomX}%`;
+                wallChunk.style.top = `${randomY}%`;
+                wallChunk.style.backgroundColor = randomColor;
+                wallChunk.style.transform = `rotate(${randomRotation}deg)`; // Make it look jagged
+
+                wallContainer.appendChild(wallChunk);
+            }
+
+            gameDiv.appendChild(wallContainer);
+            }
+
+            // Create jagged walls along each edge (only if there is no exit)
+            ['UP', 'DOWN', 'LEFT', 'RIGHT'].forEach(dir => {
+            if (!currentRoom.exits.includes(dir)) {
+                createRockyWall(dir);
+            }
+            });
+
+            // Place the enemy slightly to the left side of the room
+            if (currentRoom.enemy) {
+                renderEnemy(currentRoom, gameDiv);
+            }
+
+            // Place the artifact further left from the enemy (if this is a boss room)
+            if (currentRoom.isBoss) {
+            const artifactDiv = document.createElement('img');
+            artifactDiv.src = `images/${currentRoom.artifact.toLowerCase().replaceAll(' ', '_')}.png`;
+            artifactDiv.className = 'artifact';
+            artifactDiv.alt = currentRoom.artifact;
+
+            // Position the artifact further to the left
+            artifactDiv.style.left = '20%';  // Adjust as needed
+            artifactDiv.style.top = '50%';   // Center vertically
+            gameDiv.appendChild(artifactDiv);
+            }
+            let description = `You are in a cave. Exits lead: ${currentRoom.exits.join(', ') || 'nowhere'}.`;
+            if (currentRoom.enemy) {
+                description += ` You see ${['a', 'e', 'i', 'o', 'u'].includes(currentRoom.enemyStatus[0].toLowerCase()) ? 'an' : 'a'} ${currentRoom.enemyStatus} ${currentRoom.enemy} nearby.`;
+                description += ` It has ${currentRoom.enemyHealth} health and ${currentRoom.enemyStrength} strength.`;
+                if (currentRoom.enemyStatus === 'angry' || currentRoom.enemyStatus === 'hungry') {
+                    description += ` The exits are blocked by the ${currentRoom.enemy}.`;
+                    currentRoom.storedExits = currentRoom.exits;
+                    currentRoom.exits = []; // Block exits if enemy is angry
+
+                }
+            }
+            if (currentRoom.isBoss) {
+                description += ` This cave contains the ${currentRoom.artifact}.`;
+            }
+            descriptionDiv.textContent = description;
+
+            const infoDiv = document.getElementById('info');
+            if (currentRoom.enemy) {
+                if (currentRoom.enemyStatus === 'angry') {
+                    infoDiv.textContent = 'The enemy is blocking the exits. You must defeat it or attempt to run to escape! (Controls: Attack [A], Run [R], Use Item [U])';
+                } else if (currentRoom.enemyStatus === 'sleeping') {
+                    infoDiv.textContent = 'The enemy is sleeping. You can try to sneak past it. (Controls: Move [Arrow Keys], Use Item [U])';
+                } else if (currentRoom.enemyStatus === 'hungry') {
+                    infoDiv.textContent = 'The enemy looks hungry. You can give it food or attack. (Controls: Give [G], Attack [A], Use Item [U])';
+                } else {
+                    infoDiv.textContent = 'An enemy is nearby. (Controls: Move [Arrow Keys], Attack [A], Use Item [U])';
+                }
+            } else {
+                infoDiv.textContent = 'Use Arrow Keys to Move (Controls: Use Item [U])';
+            }
+            renderPlayerStatus();
+            renderInventory();  // Update inventory after rendering the room
+            renderMiniMap();  // Update mini-map after rendering the room
+        }
+
+        function renderPlayerStatus() {
+            // output health, strength, weapon, shield to status panel
+            const statusDiv = document.getElementById('status-panel');
+            statusDiv.innerHTML = '';
+            const healthDiv = document.createElement('div');
+            const healthBarContainer = document.createElement('div');
+            healthBarContainer.className = 'health-bar-container';
+            const healthBar = document.createElement('div');
+            healthBar.className = 'health-bar';
+            healthBar.style.width = '200px';
+            healthBar.style.height = '20px';
+            healthBar.style.border = '1px solid white';
+            healthBar.style.backgroundColor = 'red';
+
+            const healthFill = document.createElement('div');
+            healthFill.className = 'health-fill';
+            healthFill.style.height = '100%';
+            healthFill.style.width = `${(player.health / player['max-health']) * 100}%`;
+            healthFill.style.backgroundColor = 'green';
+
+            healthBar.appendChild(healthFill);
+            healthBarContainer.appendChild(healthBar);
+            statusDiv.appendChild(healthBarContainer);
+            statusDiv.appendChild(healthDiv);
+            const weaponDiv = document.createElement('div');
+            weaponDiv.textContent = `Weapon: ${player.weaponstrength}`;
+            statusDiv.appendChild(weaponDiv);
+            const shieldDiv = document.createElement('div');
+            shieldDiv.textContent = `Shield: ${player.shieldstrength}`;
+            statusDiv.appendChild(shieldDiv);
+        }
+
+        function renderEnemy(currentRoom, gameDiv) {
+            const enemyImg = document.createElement('img');
+                enemyImg.src = `images/${currentRoom.enemy.toLowerCase().replaceAll(' ', '_')}.png`;
+                enemyImg.className = 'enemy';
+                enemyImg.alt = currentRoom.enemy;
+
+                // Position the enemy on the left side of the room
+                enemyImg.style.left = '10%';  // Adjust this value to place the enemy
+                enemyImg.style.top = '50%';   // Center vertically
+                gameDiv.appendChild(enemyImg);
+                
+                const enemyHealthBarContainer = document.createElement('div');
+                enemyHealthBarContainer.className = 'health-bar-container';
+                enemyHealthBarContainer.style.position = 'absolute';
+                enemyHealthBarContainer.style.left = '6.8%';  // Align with enemy position
+                enemyHealthBarContainer.style.top = '43%';   // Position above the enemy
+
+                const enemyHealthBar = document.createElement('div');
+                enemyHealthBar.className = 'health-bar';
+                enemyHealthBar.style.width = '80px';
+                enemyHealthBar.style.height = '5px';
+                enemyHealthBar.style.border = '1px solid white';
+                enemyHealthBar.style.backgroundColor = 'red';
+
+                const enemyHealthFill = document.createElement('div');
+                enemyHealthFill.className = 'health-fill';
+                enemyHealthFill.style.height = '100%';
+                enemyHealthFill.style.width = `${(currentRoom.enemyHealth / currentRoom.enemyMaxHealth) * 100}%`;
+                enemyHealthFill.style.backgroundColor = 'green';
+
+                enemyHealthBar.appendChild(enemyHealthFill);
+                enemyHealthBarContainer.appendChild(enemyHealthBar);
+                gameDiv.appendChild(enemyHealthBarContainer);
+        }
+
+        function renderMiniMap() {
+            const miniMapDiv = document.getElementById('mini-map');
+            miniMapDiv.innerHTML = ''; // Clear the mini-map
+
+            // Loop through the rooms in the dungeon
+            dungeon.forEach((room, index) => {
+            const roomDiv = document.createElement('div');
+            roomDiv.className = 'mini-room';
+
+            // Set the background color based on whether the room is discovered
+            if (room.discovered) {
+                roomDiv.classList.add('discovered');
+            } else {
+                roomDiv.style.backgroundColor = 'black';  // Set undiscovered rooms to black
+            }
+
+            // Add the 'current' class if this is the current room
+            if (index === getIndex(currentX, currentY)) {
+                roomDiv.classList.add('current');
+            }
+
+            // Add mini-exit markers for each room based on its exits
+            if (room.exits.includes('UP')) {
+                const exitDiv = document.createElement('div');
+                exitDiv.className = 'mini-exit up';
+                roomDiv.appendChild(exitDiv);
+            }
+            if (room.exits.includes('DOWN')) {
+                const exitDiv = document.createElement('div');
+                exitDiv.className = 'mini-exit down';
+                roomDiv.appendChild(exitDiv);
+            }
+            if (room.exits.includes('LEFT')) {
+                const exitDiv = document.createElement('div');
+                exitDiv.className = 'mini-exit left';
+                roomDiv.appendChild(exitDiv);
+            }
+            if (room.exits.includes('RIGHT')) {
+                const exitDiv = document.createElement('div');
+                exitDiv.className = 'mini-exit right';
+                roomDiv.appendChild(exitDiv);
+            }
+
+            // Append the room to the mini-map
+            miniMapDiv.appendChild(roomDiv);
+            });
+        }
+
+        function movePlayer(direction) {
+            const [dx, dy] = DIRECTIONS[direction];
+            const nextX = currentX + dx;
+            const nextY = currentY + dy;
+            const currentRoom = dungeon[getIndex(currentX, currentY)];
+
+            // if the room contains a sleeping enemy, there is a 50% chance of waking it up. If it wakes up its status will change to one of the others - could be angry, hungry, curious, uninterested 
+            if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
+                if (Math.random() < 0.5) {
+                    currentRoom.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
+                        renderRoom();
+                        return;
+                }
+            }
+
+ 
+
+            if (currentRoom.exits.includes(direction) && isInBounds(nextX, nextY)) {
+                currentX = nextX;
+                currentY = nextY;
+                renderRoom();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') movePlayer('UP');
+            if (e.key === 'ArrowDown') movePlayer('DOWN');
+            if (e.key === 'ArrowLeft') movePlayer('LEFT');
+            if (e.key === 'ArrowRight') movePlayer('RIGHT');
+            // add controls for Give (G), 'Attack (A)', 'Run (R)', 'Pick Up (P)', 'Eat (E)'
+            if (e.key === 'g') {
+                // give item to enemy (food for hungry enemies)
+                // allow to select from inventory
+            }
+            if (e.key === 'u') {
+                // if inventory is empty return
+                if (player.inventory.length === 0 || player.health === 600 ) {
+                    return;
+                }
+                // use item - allow to select from inventory
+                // list all health and food items and give them a number to select
+                let healthItems = player.inventory.health.map((item, index) => `${index + 1}. ${item.name} (${item.quantity})`);
+                let foodItems = player.inventory.food.map((item, index) => `${index + 1}. ${item.name} (${item.quantity})`);
+                let allItems = healthItems.concat(foodItems);
+                let itemIndex = prompt(`Select an item to use:\n${allItems.join('\n')}`);
+                if (itemIndex) {
+                    itemIndex = parseInt(itemIndex) - 1;
+                    let item = allItems[itemIndex];
+                    let itemName = item.split(' ')[1];
+                    // find item in inventory and get the health it adds - step through food and health to find it 
+                    for (let i = 0; i < player.inventory.health.length; i++) {
+                        if (player.inventory.health[i].name === itemName) {
+                            item = player.inventory.health[i];
+                        }
+                    }
+                    for (let i = 0; i < player.inventory.food.length; i++) {
+                        if (player.inventory.food[i].name === itemName) {
+                            item = player.inventory.food[i];
+                        }
+                    }
+                    // get item health from FOOD_ITEMS or HEALTH_ITEMS
+            
+
+                    item = FOOD_ITEMS.find(item => item.name === itemName) || HEALTH_ITEMS.find(item => item.name === itemName);
+
+                    //console.log(item);
+                    player.health += item.health;
+                    if (player.health > player['max-health']) {
+                        player.health = player['max-health'];
+                    }   
+                    // remove item from inventory - step through and find selected item and reduce count by one, if count is 0 remove item
+                    for (let i = 0; i < player.inventory.health.length; i++) {
+                        if (player.inventory.health[i].name === itemName) {
+                            player.inventory.health[i].quantity -= 1;
+                            if (player.inventory.health[i].quantity === 0) {
+                                player.inventory.health.splice(i, 1);
+                            }
+                        }
+                    }
+                    for (let i = 0; i < player.inventory.food.length; i++) {
+                        if (player.inventory.food[i].name === itemName) {
+                            player.inventory.food[i].quantity -= 1;
+                            if (player.inventory.food[i].quantity === 0) {
+                                player.inventory.food.splice(i, 1);
+                            }
+                        }
+                    }
+                   // alert(`You have used ${item.name} and gained ${item.health} health. You now have ${player.health} health.`);
+                    renderInventory();
+                }
+            }
+            if (e.key === 'a') {
+                // attack enemy
+                attackEnemy();
+            }
+            if (e.key === 'r') {
+                // run from 25% chance of moving in a random available direction, if not forced to attack
+                // if no enemy return
+                let currentRoom = dungeon[getIndex(currentX, currentY)];
+                if (!currentRoom.enemy) {
+                    return;
+                }
+                let availableDirections = ['UP', 'DOWN', 'LEFT', 'RIGHT'].filter(dir => dungeon[getIndex(currentX, currentY)].exits.includes(dir));
+                if (Math.random() < 0.25 && availableDirections.length > 0) {
+                    alert('You manage to escape!')
+                    const randomDirection = availableDirections[Math.floor(Math.random() * availableDirections.length)];
+                    movePlayer(randomDirection);
+                } else {
+                    // add note to description that the enemy catches you and you must fight
+                    alert('The enemy catches you and you must fight!');
+                    let descriptionDiv = document.getElementById('description');
+                    descriptionDiv.textContent += ' The enemy catches you and you must fight!';
+                    attackEnemy();
+                }
+            }
+            if (e.key === 'p') {
+                // pick up item
+            }
+            if (e.key === 'e') {
+                // eat food item - allow to select from inventory
+            }
+            renderPlayerStatus();
+
+        });
+
+        function attackEnemy() {
+            
+            // three rounds - if either health < 0, player or enemy dies
+            currentRoom = dungeon[getIndex(currentX, currentY)];
+
+            // if no enemy return
+            if (!currentRoom.enemy) {
+                return;
+            }
+
+            // make enemy angry
+            currentRoom.enemyStatus = 'angry';
+
+            
+            let playerDamage = Math.floor(Math.random() * player.weaponstrength);
+            let enemyDamage = Math.floor(Math.random() * currentRoom.enemyStrength);
+            currentRoom.enemyHealth -= playerDamage;
+            player.health -= enemyDamage;
+
+            // update description
+            let descriptionDiv = document.getElementById('description');
+            descriptionDiv.textContent = `You attack the ${currentRoom.enemy} and deal ${playerDamage} damage. The ${currentRoom.enemy} has ${currentRoom.enemyHealth} health left. The ${currentRoom.enemy} attacks you and deals ${enemyDamage} damage. You have ${player.health} health left.`;
+            // wait 2 seconds for next round;
+            renderEnemy(currentRoom, document.getElementById('game'));
+
+        
+            if (player.health <= 0) {
+                // player dies
+                let descriptionDiv = document.getElementById('description');
+                descriptionDiv.textContent = `You have been defeated by the ${currentRoom.enemy}. Game Over!`;
+                // reset game
+                currentX = GRID_SIZE - 1;
+                currentY = GRID_SIZE - 1;
+                health = 100;
+                inventory = [];
+                alert(`You have been defeated by the ${currentRoom.enemy}. Game Over!`);
+                // reload the game page
+                location.reload();    
+            } else if (currentRoom.enemyHealth <= 0) {
+                // enemy dies
+                alert(`You have defeated the ${currentRoom.enemy}.`);
+                let descriptionDiv = document.getElementById('description');
+                descriptionDiv.textContent = `You have defeated the ${currentRoom.enemy}.`;
+                // remove enemy from room
+                currentRoom.enemy = null;
+                currentRoom.enemyHealth = null;
+                currentRoom.enemyStrength = null;
+                currentRoom.enemyStatus = null;
+                renderRoom();
+            }
+        }
+
+        function renderInventory() {
+            const inventoryDiv = document.getElementById('inventory');
+            inventoryDiv.innerHTML = ''; // Clear the inventory
+
+            // Helper function to create inventory item elements
+            function createInventoryItem(item, quantity) {
+                const itemDiv = document.createElement('div');
+                itemDiv.textContent = `${item} (x${quantity})`;
+                return itemDiv;
+            }
+
+            // Loop through the player's inventory and display each item
+            for (const category in player.inventory) {
+                if (player.inventory[category].length > 0) {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.textContent = category.charAt(0).toUpperCase() + category.slice(1) + ':';
+                    inventoryDiv.appendChild(categoryDiv);
+
+                    player.inventory[category].forEach((item) => {
+                        const itemDiv = createInventoryItem(item.name.charAt(0).toUpperCase() + item.name.slice(1), item.quantity || 1);
+                        inventoryDiv.appendChild(itemDiv);
+                    });
+                }
+            }
+        }
+
+        generateMaze();
+        placeEnemies();
+        renderRoom();
+    </script>
+</body>
+</html>
