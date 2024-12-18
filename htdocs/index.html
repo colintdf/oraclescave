@@ -264,20 +264,22 @@
 
         const ENEMY_STATUSES = ["sleeping", "uninterested", "angry", "hungry", "curious"];
 
+    
+
         const ENEMY_TYPES = [
-            { name: "Troll", health: 100, strength: 10, maxCount: 10 },
-            { name: "Cyclops", health: 200, strength: 40, maxCount: 5 },
-            { name: "Minotaur", health: 300, strength: 60, maxCount: 3 },
-            { name: "Goblin", health: 50, strength: 10, maxCount: 15 },
-            { name: "Orc", health: 150, strength: 30, maxCount: 7 },
-            { name: "Wraith", health: 250, strength: 50, maxCount: 4 },
-            { name: "Demon", health: 500, strength: 70, maxCount: 2 }
+            { name: "Goblin", health: 50, strength: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.3) },
+            { name: "Troll", health: 100, strength: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
+            { name: "Orc", health: 150, strength: 30, maxCount: Math.floor(TOTAL_SCREENS * 0.15) },
+            { name: "Cyclops", health: 200, strength: 40, maxCount: Math.floor(TOTAL_SCREENS * 0.1) },
+            { name: "Wraith", health: 250, strength: 50, maxCount: Math.floor(TOTAL_SCREENS * 0.08) },
+            { name: "Minotaur", health: 300, strength: 60, maxCount: Math.floor(TOTAL_SCREENS * 0.05) },
+            { name: "Demon", health: 500, strength: 70, maxCount: Math.floor(TOTAL_SCREENS * 0.02) },
         ];
         const BOSS_TYPES = [
-            { name: "Dragon", health: 1000, strength: 100 },
-            { name: "Lich King", health: 1000, strength: 100 },
-            { name: "Demon Lord", health: 1000, strength: 100 },
-            { name: "Hydra", health: 1000, strength: 100 }
+            { name: "Ancient Dragon", health: 1000, strength: 100 },
+            { name: "Necromancer King", health: 1000, strength: 100 },
+            { name: "Infernal Overlord", health: 1000, strength: 100 },
+            { name: "Leviathan", health: 1000, strength: 100 }
         ];
         const FOOD_ITEMS = [
             { name: "apple", health: 50 },
@@ -399,7 +401,7 @@
         function placeEnemies() {
             const bossPositions = new Set();
             while (bossPositions.size < 4) {
-                const pos = Math.floor(Math.random() * TOTAL_SCREENS);
+                const pos = Math.floor(Math.random() * (TOTAL_SCREENS / 2)); // Only top half of the dungeon
                 if (pos !== 0 && pos !== TOTAL_SCREENS - 1) {
                     bossPositions.add(pos);
                     const bossIndex = bossPositions.size - 1;
@@ -412,13 +414,13 @@
                     dungeon[pos].enemyStrength = BOSS_TYPES[bossIndex].strength;
                     // status is always angry
                     dungeon[pos].enemyStatus = 'angry';
-                    console.log('Placed boss', dungeon[pos].enemy, 'in room', pos);
+                   // console.log('Placed boss', dungeon[pos].enemy, 'in room', pos);
                 }
             }
 
             dungeon.forEach((room, index) => {
                 if (!room.isBoss && index !== 0 && index !== TOTAL_SCREENS - 1) {
-                    if (Math.random() < 0.5) {
+                    if (Math.random() < 0.8) {
                         var randomEnemy = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
                         var enemyCount = dungeon.filter(r => r.enemy === randomEnemy.name).length;
                         if (enemyCount < randomEnemy.maxCount) {
@@ -427,12 +429,12 @@
                             room.enemyMaxHealth = randomEnemy.health;
                             room.enemyStrength = randomEnemy.strength;
                             room.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
-                            console.log('Placed', room.enemyStatus, room.enemy, 'in room', index, 'there are', enemyCount + 1, 'of them');
+                            //console.log('Placed', room.enemyStatus, room.enemy, 'in room', index, 'there are', enemyCount + 1, 'of them');
                         }
                     }
                 }
             });
-
+            console.log('Placed ' + dungeon.filter(r => r.enemy).length + ' enemies in the dungeon');
         
         }
 
