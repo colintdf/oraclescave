@@ -572,19 +572,40 @@
             descriptionDiv.textContent = description;
 
             const infoDiv = document.getElementById('info');
+            let infoText = '';
+
             if (currentRoom.enemy) {
                 if (currentRoom.enemyStatus === 'angry') {
-                    infoDiv.textContent = 'The enemy is blocking the exits. You must defeat it or attempt to run to escape! (Controls: Attack [A], Run [R], Use Item [U])';
+                    infoText = 'The enemy is blocking the exits. You must defeat it or attempt to run to escape!';
                 } else if (currentRoom.enemyStatus === 'sleeping') {
-                    infoDiv.textContent = 'The enemy is sleeping. You can try to sneak past it. (Controls: Move [Arrow Keys], Use Item [U])';
+                    infoText = 'The enemy is sleeping. You can try to sneak past it.';
                 } else if (currentRoom.enemyStatus === 'hungry') {
-                    infoDiv.textContent = 'The enemy looks hungry. You can give it food or attack. (Controls: Give [G], Attack [A], Use Item [U])';
+                    infoText = 'The enemy looks hungry. You can give it food or attack.';
                 } else {
-                    infoDiv.textContent = 'An enemy is nearby. (Controls: Move [Arrow Keys], Attack [A], Use Item [U])';
+                    infoText = 'An enemy is nearby.';
                 }
             } else {
-                infoDiv.textContent = 'Use Arrow Keys to Move (Controls: Use Item [U])';
+                infoText = 'Use Arrow Keys to Move.';
             }
+
+            if (currentRoom.weapon || currentRoom.artifact || currentRoom.food || currentRoom.health) {
+                infoText += ' There is something here to pick up.';
+            }
+
+            infoText += ' (Controls: ';
+            if (currentRoom.enemy) {
+                if (currentRoom.enemyStatus === 'hungry') {
+                    infoText += 'Give [G], ';
+                }
+                infoText += 'Attack [A], Run [R], ';
+            }
+            infoText += 'Use Item [U], Move [Arrow Keys]';
+            if (currentRoom.weapon || currentRoom.artifact || currentRoom.food || currentRoom.health) {
+                infoText += ', Pick Up [P]';
+            }
+            infoText += ')';
+
+            infoDiv.textContent = infoText;
             document.querySelectorAll('img').forEach(img => {
                 img.onerror = () => img.src = 'https://placehold.co/400';
             });
@@ -720,6 +741,7 @@
         }
 
         function movePlayer(direction) {
+            console.log('moving player', direction);
             const [dx, dy] = DIRECTIONS[direction];
             const nextX = currentX + dx;
             const nextY = currentY + dy;
@@ -728,6 +750,7 @@
             // if the room contains a sleeping enemy, there is a 50% chance of waking it up. If it wakes up its status will change to one of the others - could be angry, hungry, curious, uninterested 
             if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
                 if (Math.random() < 0.5) {
+                    alert('The enemy wakes up!');
                     currentRoom.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
                         renderRoom();
                         return;
@@ -821,10 +844,12 @@
                 if (!currentRoom.enemy) {
                     return;
                 }
-                let availableDirections = ['UP', 'DOWN', 'LEFT', 'RIGHT'].filter(dir => dungeon[getIndex(currentX, currentY)].exits.includes(dir));
-                if (Math.random() < 0.25 && availableDirections.length > 0) {
+                let availableDirections = ['UP', 'DOWN', 'LEFT', 'RIGHT'].filter(dir => dungeon[getIndex(currentX, currentY)].storedExits.includes(dir));
+                if ((currentRoom.enemyStatus === 'hungry' && Math.random() < 0.5) || (Math.random() < 0.25 && availableDirections.length > 0)) {
                     alert('You manage to escape!')
+                    console.log(availableDirections);
                     const randomDirection = availableDirections[Math.floor(Math.random() * availableDirections.length)];
+                    currentRoom.exits = currentRoom.storedExits;
                     movePlayer(randomDirection);
                 } else {
                     // add note to description that the enemy catches you and you must fight
