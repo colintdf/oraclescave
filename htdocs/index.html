@@ -302,17 +302,17 @@
         ];
 
         const WEAPON_ITEMS = [
-            { name: "Wooden Sword", strength: 20, uses: 10 },
-            { name: "Iron Sword", strength: 40, uses: 20 },
-            { name: "Steel Sword", strength: 60, uses: 25 },
-            { name: "Golden Sword", strength: 80, uses: 30 },
-            { name: "Diamond Sword", strength: 100, uses: 10000 },
-            { name: "Battle Axe", strength: 50, uses: 15 },
-            { name: "War Hammer", strength: 70, uses: 20 },
-            { name: "Magic Staff", strength: 90, uses: 10 },
-            { name: "Crossbow", strength: 60, uses: 20 },
-            { name: "Throwing Knives", strength: 30, uses: 5 },
-            { name: "Asterion's Wrath", strength: 1000, uses: 1 } // Extremely powerful, one-time use
+            { name: "Wooden Sword", strength: 20, uses: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.5) }, // Increased maxCount
+            { name: "Iron Sword", strength: 40, uses: 20, maxCount: Math.floor(TOTAL_SCREENS * 0.25) },
+            { name: "Steel Sword", strength: 60, uses: 25, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
+            { name: "Golden Sword", strength: 80, uses: 30, maxCount: Math.floor(TOTAL_SCREENS * 0.15) },
+            { name: "Diamond Sword", strength: 100, uses: 10000, maxCount: Math.floor(TOTAL_SCREENS * 0.1) },
+            { name: "Battle Axe", strength: 50, uses: 15, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
+            { name: "War Hammer", strength: 70, uses: 20, maxCount: Math.floor(TOTAL_SCREENS * 0.15) },
+            { name: "Magic Staff", strength: 90, uses: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.1) },
+            { name: "Crossbow", strength: 60, uses: 20, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
+            { name: "Throwing Knives", strength: 30, uses: 5, maxCount: Math.floor(TOTAL_SCREENS * 0.25) },
+            { name: "Asterion's Wrath", strength: 1000, uses: 1, maxCount: Math.floor(TOTAL_SCREENS * 0.01) } // Extremely powerful, one-time use
         ];
 
         const ARTIFACTS = ["Sword of Power", "Shield of Ages", "Ring of Fate", "Amulet of Souls"];
@@ -438,6 +438,23 @@
         
         }
 
+        function placeWeapons() {
+          
+            dungeon.forEach((room, index) => {
+                if (Math.random() < 0.4 && index !== 0 && index !== TOTAL_SCREENS - 1) {
+                    var randomWeapon = WEAPON_ITEMS[Math.floor(Math.random() * WEAPON_ITEMS.length)];
+                    var weaponCount = dungeon.filter(r => r.enemy === randomWeapon.name).length;
+                    if (weaponCount < randomWeapon.maxCount) {
+                        room.weapon = randomWeapon.name;
+                        room.weaponStrength = randomWeapon.strength;
+                        room.weaponUses = randomWeapon.uses;
+                    }
+                }
+            });
+            console.log('Placed ' + dungeon.filter(r => r.weapon).length + ' weapons in the dungeon');
+        
+        }
+
         function renderRoom() {
         
             const gameDiv = document.getElementById('game');
@@ -521,7 +538,9 @@
             if (currentRoom.enemy) {
                 renderEnemy(currentRoom, gameDiv);
             }
-
+            if (currentRoom.weapon) {
+                renderWeapon(currentRoom, gameDiv);
+            }
             // Place the artifact further left from the enemy (if this is a boss room)
             if (currentRoom.isBoss) {
             const artifactDiv = document.createElement('img');
@@ -542,11 +561,13 @@
                     description += ` The exits are blocked by the ${currentRoom.enemy}.`;
                     currentRoom.storedExits = currentRoom.exits;
                     currentRoom.exits = []; // Block exits if enemy is angry
-
                 }
             }
             if (currentRoom.isBoss) {
                 description += ` This cave contains the ${currentRoom.artifact}.`;
+            }
+            if (currentRoom.weapon) {
+                description += ` You see a ${currentRoom.weapon} here.`;
             }
             descriptionDiv.textContent = description;
 
@@ -564,6 +585,9 @@
             } else {
                 infoDiv.textContent = 'Use Arrow Keys to Move (Controls: Use Item [U])';
             }
+            document.querySelectorAll('img').forEach(img => {
+                img.onerror = () => img.src = 'https://placehold.co/400';
+            });
             renderPlayerStatus();
             renderInventory();  // Update inventory after rendering the room
             renderMiniMap();  // Update mini-map after rendering the room
@@ -636,6 +660,17 @@
                 gameDiv.appendChild(enemyHealthBarContainer);
         }
 
+        function renderWeapon(currentRoom, gameDiv) {
+            const weaponImg = document.createElement('img');
+            weaponImg.src = `images/${currentRoom.weapon.toLowerCase().replaceAll(' ', '_')}.png`;
+            weaponImg.className = 'artifact';
+            weaponImg.alt = currentRoom.weapon;
+
+            // Position the weapon in the room
+            weaponImg.style.left = '30%';  // Adjust this value to place the weapon
+            weaponImg.style.top = '50%';   // Center vertically
+            gameDiv.appendChild(weaponImg);
+        }
         function renderMiniMap() {
             const miniMapDiv = document.getElementById('mini-map');
             miniMapDiv.innerHTML = ''; // Clear the mini-map
@@ -887,8 +922,13 @@
             }
         }
 
+        // if any images 404 replace them with images/placeholder.png
+      
+
         generateMaze();
         placeEnemies();
+        placeWeapons();
+
         renderRoom();
     </script>
 </body>
