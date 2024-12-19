@@ -264,22 +264,30 @@
 
         const ENEMY_STATUSES = ["sleeping", "uninterested", "angry", "hungry", "curious"];
 
-    
+        const EXITS = [
+            {
+                name: "Oracle's Cauldron",
+                activationArtifact: "Oracle's Potion",
+                roomX: 0,
+                roomY: 0
+            }
+        ]
 
         const ENEMY_TYPES = [
-            { name: "Goblin", health: 50, strength: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.3) },
-            { name: "Troll", health: 100, strength: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
-            { name: "Orc", health: 150, strength: 30, maxCount: Math.floor(TOTAL_SCREENS * 0.15) },
-            { name: "Cyclops", health: 200, strength: 40, maxCount: Math.floor(TOTAL_SCREENS * 0.1) },
-            { name: "Wraith", health: 250, strength: 50, maxCount: Math.floor(TOTAL_SCREENS * 0.08) },
-            { name: "Minotaur", health: 300, strength: 60, maxCount: Math.floor(TOTAL_SCREENS * 0.05) },
-            { name: "Demon", health: 500, strength: 70, maxCount: Math.floor(TOTAL_SCREENS * 0.02) },
+            { name: "Goblin", health: 50, strength: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.3), score: 10 },
+            { name: "Troll", health: 100, strength: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.2), score: 20 },
+            { name: "Orc", health: 150, strength: 30, maxCount: Math.floor(TOTAL_SCREENS * 0.15), score: 30 },
+            { name: "Cyclops", health: 200, strength: 40, maxCount: Math.floor(TOTAL_SCREENS * 0.1), score: 40 },
+            { name: "Wraith", health: 250, strength: 50, maxCount: Math.floor(TOTAL_SCREENS * 0.08), score: 50 },
+            { name: "Minotaur", health: 300, strength: 60, maxCount: Math.floor(TOTAL_SCREENS * 0.05), score: 60 },
+            { name: "Demon", health: 500, strength: 70, maxCount: Math.floor(TOTAL_SCREENS * 0.02), score: 100 },
         ];
         const BOSS_TYPES = [
-            { name: "Ancient Dragon", health: 1000, strength: 100 },
-            { name: "Necromancer King", health: 1000, strength: 100 },
-            { name: "Infernal Overlord", health: 1000, strength: 100 },
-            { name: "Leviathan", health: 1000, strength: 100 }
+            { name: "Oracle", health: 10000, strength: 10000, status: "mystical", score: 1000 },
+            { name: "Ancient Dragon", health: 1000, strength: 100, status: "angry", score: 1000 },
+            { name: "Necromancer King", health: 1000, strength: 100, status: "angry", score: 1000 },
+            { name: "Infernal Overlord", health: 1000, strength: 100, status: "angry", score: 1000 },
+            { name: "Leviathan", health: 1000, strength: 100, status: "angry", score: 1000 }
         ];
         const FOOD_ITEMS = [
             { name: "apple", health: 50 },
@@ -315,7 +323,7 @@
             { name: "Asterion's Wrath", strength: 1000, uses: 1, maxCount: Math.floor(TOTAL_SCREENS * 0.01) } // Extremely powerful, one-time use
         ];
 
-        const ARTIFACTS = ["Sword of Power", "Shield of Ages", "Ring of Fate", "Amulet of Souls"];
+        const ARTIFACTS = ["Oracle's Potion", "Sword of Power", "Shield of Ages", "Ring of Fate", "Amulet of Souls"];
 
         const dungeon = Array.from({ length: TOTAL_SCREENS }, () => ({
             exits: [],
@@ -325,7 +333,8 @@
             enemyStrength: null,
             isBoss: false,
             artifact: null,
-            hasArtifact: false
+            hasArtifact: false,
+            dungeonExits: []
         }));
         let currentX = GRID_SIZE - 1, currentY = GRID_SIZE - 1; 
         let player = 
@@ -347,9 +356,17 @@
                 'weapon': 'none',
                 'shieldstrength': 0,
                 'shielduses': -1,
-                'shield': 'none'
+                'shield': 'none',
+                'score': 0,
+                'percentcomplete': 0
             };
         
+        let gameStatus = {
+            'totalEnemies': 0,
+            'totalBosses' : 0,
+            'discoveredRooms': 0,
+            'totalRooms': TOTAL_SCREENS
+        }
    
         function isInBounds(x, y) {
             return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
@@ -403,9 +420,10 @@
         }
 
         function placeEnemies() {
+            console.log('Placing enemies in the dungeon');
             const bossPositions = new Set();
-            while (bossPositions.size < 4) {
-                const pos = Math.floor(Math.random() * (TOTAL_SCREENS / 2)); // Only top half of the dungeon
+            while (bossPositions.size < BOSS_TYPES.length) {
+                const pos = Math.floor(Math.random() * TOTAL_SCREENS / 2); // Only top half of the dungeon
                 if (pos !== 0 && pos !== TOTAL_SCREENS - 1) {
                     bossPositions.add(pos);
                     const bossIndex = bossPositions.size - 1;
@@ -417,8 +435,10 @@
                     dungeon[pos].enemyMaxHealth = BOSS_TYPES[bossIndex].health;
                     dungeon[pos].enemyStrength = BOSS_TYPES[bossIndex].strength;
                     // status is always angry
-                    dungeon[pos].enemyStatus = 'angry';
-                   // console.log('Placed boss', dungeon[pos].enemy, 'in room', pos);
+                    dungeon[pos].enemyStatus = BOSS_TYPES[bossIndex].status;
+                    dungeon[pos].enemyScore = BOSS_TYPES[bossIndex].score;
+                    console.log('Placed boss', dungeon[pos].enemy, 'in room', pos);
+                    gameStatus.totalBosses += 1;
                 }
             }
 
@@ -433,7 +453,9 @@
                             room.enemyMaxHealth = randomEnemy.health;
                             room.enemyStrength = randomEnemy.strength;
                             room.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
-                            //console.log('Placed', room.enemyStatus, room.enemy, 'in room', index, 'there are', enemyCount + 1, 'of them');
+                            room.enemyScore = randomEnemy.score;
+                            console.log('Placed', room.enemyStatus, room.enemy, 'in room', index, 'there are', enemyCount + 1, 'of them');
+                            gameStatus.totalEnemies += 1;
                         }
                     }
                 }
@@ -492,7 +514,14 @@
             gameDiv.innerHTML = '';  // Clear previous room
             console.log(getIndex(currentX, currentY));
             const currentRoom = dungeon[getIndex(currentX, currentY)];
+            if (!currentRoom.discovered) { 
+                gameStatus.discoveredRooms += 1;
+                //discovering all rooms is worth 10% of the percentage complete so calculate that from the total rooms to discover rooms and add to percentcomplete player status
+                player.percentcomplete += 10 / gameStatus.totalRooms;
+
+            }
             currentRoom.discovered = true;
+            
             // if storedExits exists, restore the exits
             if (currentRoom.storedExits) {
                 currentRoom.exits = currentRoom.storedExits;
@@ -581,7 +610,9 @@
             if (currentRoom.shield) {
                 renderShield(currentRoom, gameDiv);
             }
-
+            if (currentRoom.dungeonExits) {
+                renderDungeonExit(currentRoom, gameDiv);
+            }
             // Place the artifact further left from the enemy (if this is a boss room)
             if (currentRoom.isBoss) {
             const artifactDiv = document.createElement('img');
@@ -658,7 +689,11 @@
                 if (currentRoom.enemyStatus === 'hungry') {
                     infoText += 'Give [G], ';
                 }
-                infoText += 'Attack [A], Run [R], ';
+                infoText += 'Attack [A],'; 
+                
+                if (currentRoom.enemyStatus == 'angry' || currentRoom.enemyStatus =='hungry') { 
+                    infoText += 'Run [R], ';
+                }
             }
             infoText += 'Use Item [U], Move [Arrow Keys]';
             if (currentRoom.weapon || currentRoom.artifact || currentRoom.food || currentRoom.health) {
@@ -673,10 +708,11 @@
             renderPlayerStatus();
             renderInventory();  // Update inventory after rendering the room
             renderMiniMap();  // Update mini-map after rendering the room
+            console.log(player, gameStatus);
         }
 
         function renderPlayerStatus() {
-            // output health, strength, weapon, shield to status panel
+            // output health, strength, weapon, shield, score, and percentage complete to status panel
             const statusDiv = document.getElementById('status-panel');
             statusDiv.innerHTML = '';
             const healthDiv = document.createElement('div');
@@ -705,6 +741,12 @@
             const shieldDiv = document.createElement('div');
             shieldDiv.textContent = `Shield: ${player.shield} (Strength: ${player.shieldstrength}${player.shielduses < 0 ? '' : `, Uses: ${player.shielduses}`})`;
             statusDiv.appendChild(shieldDiv);
+            const scoreDiv = document.createElement('div');
+            scoreDiv.textContent = `Score: ${player.score}`;
+            statusDiv.appendChild(scoreDiv);
+            const percentCompleteDiv = document.createElement('div');
+            percentCompleteDiv.textContent = `Percentage Complete: ${player.percentcomplete.toFixed(2)}%`;
+            statusDiv.appendChild(percentCompleteDiv);
         }
 
         function renderEnemy(currentRoom, gameDiv) {
@@ -876,6 +918,92 @@
             if (e.key === 'g') {
                 // give item to enemy (food for hungry enemies)
                 // allow to select from inventory
+                // allow select all food items to give enemy - changes their status to curious
+                // if enemy is not hungry then return or there is no food then return
+                let currentRoom = dungeon[getIndex(currentX, currentY)];
+
+                if (currentRoom.isBoss && currentRoom.enemy == 'Oracle') {
+                    // if the user doesn't have any artifacts then return
+                    if (player.inventory.artifacts.length === 0) {
+                        return;
+                    } 
+
+                    // if they do then allow them to select on artifact to give to the Oracle. The oracle will give them the Oracle's Potion in return and then disappear. Increment score by 1000 and percentage complete by 5%
+                    let artifactItems = player.inventory.artifacts.map((item, index) => `${index + 1}. ${item.name}`);
+
+                    let allItems = artifactItems;
+                    let itemIndex = prompt(`Select an artifact to give to the Oracle:\n${allItems.join('\n')}`);
+
+                    if (itemIndex) {
+                        itemIndex = parseInt(itemIndex) - 1;
+                        let item = allItems[itemIndex];
+                        let itemName = item.split(' ').slice(1).join(' ');
+                        // find item in inventory and get the health it adds - step through food and health to find it 
+                        for (let i = 0; i < player.inventory.artifacts.length; i++) {
+                            if (player.inventory.artifacts[i].name === itemName) {
+                                item = player.inventory.artifacts[i];
+                            }
+                        }
+                        // remove from inventory
+                        for (let i = 0; i < player.inventory.artifacts.length; i++) {
+                            if (player.inventory.artifacts[i].name === itemName) {
+                                player.inventory.artifacts.splice(i, 1);
+                            }
+                        }
+                        // give the player the Oracle's Potion
+                        player.inventory.artifacts.push({ name: "Oracle's Potion", quantity: 1 });
+                        player.score += 1000;
+                        player.percentcomplete += 5;
+                        alert(`You gave the Oracle the ${itemName}. The Oracle gave you a magical potion in return. Before disappearing the Oracle says, "You are on the right path. This potion will return you home."`);
+                        currentRoom.enemy = null;
+                        currentRoom.enemyStatus = null;
+                        currentRoom.artifact = null;
+                        currentRoom.isBoss = false;
+                        
+                        renderRoom();
+                    }
+
+                    return;
+                }
+
+
+                if (!currentRoom.enemy || currentRoom.enemyStatus !== 'hungry') {
+                    return;
+                }
+                if (player.inventory.food.length === 0) {
+                    return;
+                }
+
+                let foodItems = player.inventory.food.map((item, index) => `${index + 1}. ${item.name} (${item.quantity})`);
+                let allItems = foodItems;
+                let itemIndex = prompt(`Select an item to give to the enemy:\n${allItems.join('\n')}`);
+
+                if (itemIndex) {
+                    itemIndex = parseInt(itemIndex) - 1;
+                    let item = allItems[itemIndex];
+                    let itemName = item.split(' ')[1];
+                    // find item in inventory and get the health it adds - step through food and health to find it 
+                    for (let i = 0; i < player.inventory.food.length; i++) {
+                        if (player.inventory.food[i].name === itemName) {
+                            item = player.inventory.food[i];
+                        }
+                    }
+                    // remove from inventory
+                    for (let i = 0; i < player.inventory.food.length; i++) {
+                        if (player.inventory.food[i].name === itemName) {
+                            player.inventory.food[i].quantity -= 1;
+                            if (player.inventory.food[i].quantity === 0) {
+                                player.inventory.food.splice(i, 1);
+                            }
+                        }
+                    }
+                    // change enemy status to curious
+                    let currentRoom = dungeon[getIndex(currentX, currentY)];
+                    currentRoom.enemyStatus = 'curious';
+                    alert(`You gave the ${currentRoom.enemy} some ${itemName}. It now looks curious.`);
+                    renderRoom();
+                }
+
             }
             if (e.key === 'u') {
                 // if inventory is empty return
@@ -884,6 +1012,25 @@
                 }
                 // use item - allow to select from inventory
                 // list all health and food items and give them a number to select
+
+                // if the user has the oracle's potion and the room has the oracle's cauldron dungeonExit use them and complete the game
+                let currentRoom = dungeon[getIndex(currentX, currentY)];
+                if (currentRoom.dungeonExits && player.inventory.artifacts.find(item => item.name === "Oracle's Potion")) {
+                    // complete game = 5% of percentage complete
+                    // 5% for each artifact in inventory
+                    player.percentcomplete += 5 * player.inventory.artifacts.length;
+                    player.percentcomplete += 5;
+                    // score = 1000 for each artifact in inventory + 5000 for complete
+                    player.score += 1000 * player.inventory.artifacts.length;
+                    player.score += 5000;
+
+                    alert(`You used the Oracle's Potion and returned home. You have completed the game! Your final score is ${player.score} and you completed ${player.percentcomplete.toFixed(2)}% of the dungeon.`);
+                    location.reload();
+                    return;
+                }
+
+                
+
                 let healthItems = player.inventory.health.map((item, index) => `${index + 1}. ${item.name} (${item.quantity})`);
                 let foodItems = player.inventory.food.map((item, index) => `${index + healthItems.length + 1}. ${item.name} (${item.quantity})`);
                 let allItems = healthItems.concat(foodItems);
@@ -912,11 +1059,12 @@
                     if (item.name == 'potion') {
                         // random effects = anything up to -50 health, upto +500 health OR could transport you to a random room
                         // remove from inventory
-                        for (let i = 0; i < player.inventory.health.length; i++) {
-                            if (player.inventory.health[i].name === itemName) {
-                                player.inventory.health[i].quantity -= 1;
-                                if (player.inventory.health[i].quantity === 0) {
-                                    player.inventory.health.splice(i, 1);
+                        for (let i = 0; i < player.inventory.food.length; i++) {
+                            console.log(player.inventory.food[i].name, item.name, i, player.inventory.food.length);
+                            if (player.inventory.food[i].name === item.name) {
+                                player.inventory.food[i].quantity -= 1;
+                                if (player.inventory.food[i].quantity === 0) {
+                                    player.inventory.food.splice(i, 1);
                                 }
                             }
                         }
@@ -1023,6 +1171,7 @@
                 if (currentRoom.shield) {
                     items.push(currentRoom.shield);
                 }
+               
                 if (items.length === 0) {
                     return;
                 }
@@ -1224,6 +1373,27 @@
                 currentRoom.enemyHealth = null;
                 currentRoom.enemyStrength = null;
                 currentRoom.enemyStatus = null;
+                // remove the isBoss flag if it is a boss room
+                if (currentRoom.isBoss) {
+                    player.percentcomplete += 15;
+
+                    currentRoom.isBoss = false;
+                    // add the artifact to the player inventory
+                    player.inventory.artifacts.push({ 'name': currentRoom.artifact, 'quantity': 1 });
+                    //remove the artifact from the room
+                    alert(`You have found the ${currentRoom.artifact}.`);
+                    // add 1000 to score for getting artifact
+                    player.score += 1000;
+                    currentRoom.artifact = null;
+                } else {
+                    // all enemies account for 10% of completion so take gameStatus.totalEnemies and work out what percentage increase that is to add to the percentcomplete
+                    player.percentcomplete += 10 / gameStatus.totalEnemies;
+                }
+
+                // add score for defeating enemy based on the enemyScore value in ENEMY_TYPES and BOSS_TYPES;
+                player.score += currentRoom.enemyScore;
+                
+
                 renderRoom();
             }
         }
@@ -1255,12 +1425,40 @@
         }
 
         // if any images 404 replace them with images/placeholder.png
-      
+        function placeDungeonExits() {
+            // Place exits in random rooms
+            // step through EXITS and add to appropriate room index
+            EXITS.forEach(exit => {
+                // add exit to roomX, roomY
+                let roomX = exit.roomX;
+                let roomY = exit.roomY;
+                let roomIndex = getIndex(roomX, roomY);
+                dungeon[roomIndex].dungeonExits.push({name: exit.name, activationArtifact: exit.activationArtifact});
+            });
+        }
+
+        function renderDungeonExit(currentRoom, gameDiv) {
+            // if current room has a dungeon exit then render it
+            if (currentRoom.dungeonExits.length > 0) {
+                const exitImg = document.createElement('img');
+                exitImg.src = `images/dungeon_exit.png`;
+                exitImg.className = 'artifact';
+                exitImg.alt = 'Dungeon Exit';
+
+                // Position the exit in the room
+                exitImg.style.left = '20%';  // Adjust this value to place the exit
+                exitImg.style.top = '20%';   // Center vertically
+                gameDiv.appendChild(exitImg);
+            }
+        }
 
         generateMaze();
         placeEnemies();
         placeWeapons();
         placeItems();
+        placeDungeonExits();
+
+
 
         renderRoom();
     </script>
