@@ -85,8 +85,13 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80px;
-            height: 80px;
+            width: 160px;
+            height: 160px;
+        }
+
+        .enemy.boss {
+            width: 200px;
+            height: 200px;
         }
     
         .artifact {
@@ -753,18 +758,21 @@
             const enemyImg = document.createElement('img');
                 enemyImg.src = `images/${currentRoom.enemy.toLowerCase().replaceAll(' ', '_')}.png`;
                 enemyImg.className = 'enemy';
+                if (currentRoom.isBoss) {
+                    enemyImg.classList.add('boss');
+                }
                 enemyImg.alt = currentRoom.enemy;
 
                 // Position the enemy on the left side of the room
-                enemyImg.style.left = '10%';  // Adjust this value to place the enemy
+                enemyImg.style.left = '12%';  // Adjust this value to place the enemy
                 enemyImg.style.top = '50%';   // Center vertically
                 gameDiv.appendChild(enemyImg);
                 
                 const enemyHealthBarContainer = document.createElement('div');
                 enemyHealthBarContainer.className = 'health-bar-container';
                 enemyHealthBarContainer.style.position = 'absolute';
-                enemyHealthBarContainer.style.left = '6.8%';  // Align with enemy position
-                enemyHealthBarContainer.style.top = '43%';   // Position above the enemy
+                enemyHealthBarContainer.style.left = '9%';  // Align with enemy position
+                enemyHealthBarContainer.style.top = '37%';   // Position above the enemy
 
                 const enemyHealthBar = document.createElement('div');
                 enemyHealthBar.className = 'health-bar';
