@@ -294,11 +294,11 @@
             { name: "herb", health: 50 }
         ]
         const SHIELD_ITEMS = [
-            { name: "Wooden Shield", strength: 20 },
-            { name: "Iron Shield", strength: 40 },
-            { name: "Steel Shield", strength: 60 },
-            { name: "Golden Shield", strength: 80 },
-            { name: "Diamond Shield", strength: 100 }
+            { name: "Wooden Shield", strength: 20, uses: 10 },
+            { name: "Iron Shield", strength: 40, uses: 20 },
+            { name: "Steel Shield", strength: 60, uses: 25 },
+            { name: "Golden Shield", strength: 80, uses: 30 },
+            { name: "Diamond Shield", strength: 100, uses: 10000 }
         ];
 
         const WEAPON_ITEMS = [
@@ -343,7 +343,11 @@
                 'health': 250,
                 'max-health' : 500,
                 'weaponstrength': 10,
-                'shieldstrength': 10
+                'weaponuses': -1,
+                'weapon': 'none',
+                'shieldstrength': 0,
+                'shielduses': -1,
+                'shield': 'none'
             };
         
    
@@ -455,6 +459,32 @@
         
         }
 
+
+        function placeItems() {
+          
+          dungeon.forEach((room, index) => {
+            if (Math.random() < 0.3 && index !== 0 && index !== TOTAL_SCREENS - 1) {
+                var randomFood = FOOD_ITEMS[Math.floor(Math.random() * FOOD_ITEMS.length)];
+                room.food = randomFood.name;
+                room.foodHealth = randomFood.health;
+            }
+            if (Math.random() < 0.2 && index !== 0 && index !== TOTAL_SCREENS - 1) {
+                var randomHealth = HEALTH_ITEMS[Math.floor(Math.random() * HEALTH_ITEMS.length)];
+                room.health = randomHealth.name;
+                room.healthValue = randomHealth.health;
+            }
+            if (Math.random() < 0.3 && index !== 0 && index !== TOTAL_SCREENS - 1) {
+                var randomShield = SHIELD_ITEMS[Math.floor(Math.random() * SHIELD_ITEMS.length)];
+                room.shield = randomShield.name;
+                room.shieldStrength = randomShield.strength;
+                room.shieldUses = randomShield.uses;
+            }
+          });
+           
+      
+      }
+
+
         function renderRoom() {
         
             const gameDiv = document.getElementById('game');
@@ -542,6 +572,16 @@
             if (currentRoom.weapon) {
                 renderWeapon(currentRoom, gameDiv);
             }
+            if (currentRoom.food) {
+                renderFood(currentRoom, gameDiv);
+            }
+            if (currentRoom.health) {
+                renderHealth(currentRoom, gameDiv);
+            }
+            if (currentRoom.shield) {
+                renderShield(currentRoom, gameDiv);
+            }
+
             // Place the artifact further left from the enemy (if this is a boss room)
             if (currentRoom.isBoss) {
             const artifactDiv = document.createElement('img');
@@ -554,7 +594,13 @@
             artifactDiv.style.top = '50%';   // Center vertically
             gameDiv.appendChild(artifactDiv);
             }
-            let description = `You are in a cave. Exits lead: ${currentRoom.exits.join(', ') || 'nowhere'}.`;
+            let description = `You are in a cave.`;
+            if (currentRoom.exits.length > 0) {
+                description += ` Exits lead: ${currentRoom.exits.join(', ')}.`;
+            } else {
+                description += ` Exits lead: nowhere.`;
+            }
+            description += `<br>`;
             if (currentRoom.enemy) {
                 description += ` You see ${['a', 'e', 'i', 'o', 'u'].includes(currentRoom.enemyStatus[0].toLowerCase()) ? 'an' : 'a'} ${currentRoom.enemyStatus} ${currentRoom.enemy} nearby.`;
                 description += ` It has ${currentRoom.enemyHealth} health and ${currentRoom.enemyStrength} strength.`;
@@ -567,10 +613,24 @@
             if (currentRoom.isBoss) {
                 description += ` This cave contains the ${currentRoom.artifact}.`;
             }
+            const items = [];
             if (currentRoom.weapon) {
-                description += ` You see a ${currentRoom.weapon} here.`;
+                items.push(`${['a', 'e', 'i', 'o', 'u'].includes(currentRoom.weapon[0].toLowerCase()) ? 'an' : 'a'} ${currentRoom.weapon}`);
             }
-            descriptionDiv.textContent = description;
+            if (currentRoom.food) {
+                items.push(`some ${currentRoom.food}`);
+            }
+            if (currentRoom.health) {
+                items.push(`${['a', 'e', 'i', 'o', 'u'].includes(currentRoom.health[0].toLowerCase()) ? 'an' : 'a'} ${currentRoom.health}`);
+            }
+            if (currentRoom.shield) {
+                items.push(`${['a', 'e', 'i', 'o', 'u'].includes(currentRoom.shield[0].toLowerCase()) ? 'an' : 'a'} ${currentRoom.shield}`);
+            }
+            if (items.length > 0) {
+                const lastItem = items.pop();
+                description += ` You see ${items.join(', ')}${items.length > 0 ? ' and ' : ''}${lastItem} here.`;
+            }
+            descriptionDiv.innerHTML = description;
 
             const infoDiv = document.getElementById('info');
             let infoText = '';
@@ -640,10 +700,10 @@
             statusDiv.appendChild(healthBarContainer);
             statusDiv.appendChild(healthDiv);
             const weaponDiv = document.createElement('div');
-            weaponDiv.textContent = `Weapon: ${player.weaponstrength}`;
+            weaponDiv.textContent = `Weapon: ${player.weapon} (Strength: ${player.weaponstrength}${player.weaponuses < 0 ? '' : `, Uses: ${player.weaponuses}`})`;
             statusDiv.appendChild(weaponDiv);
             const shieldDiv = document.createElement('div');
-            shieldDiv.textContent = `Shield: ${player.shieldstrength}`;
+            shieldDiv.textContent = `Shield: ${player.shield} (Strength: ${player.shieldstrength}${player.shielduses < 0 ? '' : `, Uses: ${player.shielduses}`})`;
             statusDiv.appendChild(shieldDiv);
         }
 
@@ -693,6 +753,42 @@
             weaponImg.style.top = '50%';   // Center vertically
             gameDiv.appendChild(weaponImg);
         }
+        function renderFood(currentRoom, gameDiv) {
+            const foodImg = document.createElement('img');
+            foodImg.src = `images/${currentRoom.food.toLowerCase().replaceAll(' ', '_')}.png`;
+            foodImg.className = 'artifact';
+            foodImg.alt = currentRoom.food;
+
+            // Position the food in the room
+            foodImg.style.left = '40%';  // Adjust this value to place the food
+            foodImg.style.top = '50%';   // Center vertically
+            gameDiv.appendChild(foodImg);
+        }
+
+        function renderHealth(currentRoom, gameDiv) {
+            const healthImg = document.createElement('img');
+            healthImg.src = `images/${currentRoom.health.toLowerCase().replaceAll(' ', '_')}.png`;
+            healthImg.className = 'artifact';
+            healthImg.alt = currentRoom.health;
+
+            // Position the health in the room
+            healthImg.style.left = '50%';  // Adjust this value to place the health
+            healthImg.style.top = '50%';   // Center vertically
+            gameDiv.appendChild(healthImg);
+        }
+
+        function renderShield(currentRoom, gameDiv) {
+            const shieldImg = document.createElement('img');
+            shieldImg.src = `images/${currentRoom.shield.toLowerCase().replaceAll(' ', '_')}.png`;
+            shieldImg.className = 'artifact';
+            shieldImg.alt = currentRoom.shield;
+
+            // Position the shield in the room
+            shieldImg.style.left = '60%';  // Adjust this value to place the shield
+            shieldImg.style.top = '50%';   // Center vertically
+            gameDiv.appendChild(shieldImg);
+        }
+
         function renderMiniMap() {
             const miniMapDiv = document.getElementById('mini-map');
             miniMapDiv.innerHTML = ''; // Clear the mini-map
@@ -789,7 +885,7 @@
                 // use item - allow to select from inventory
                 // list all health and food items and give them a number to select
                 let healthItems = player.inventory.health.map((item, index) => `${index + 1}. ${item.name} (${item.quantity})`);
-                let foodItems = player.inventory.food.map((item, index) => `${index + 1}. ${item.name} (${item.quantity})`);
+                let foodItems = player.inventory.food.map((item, index) => `${index + healthItems.length + 1}. ${item.name} (${item.quantity})`);
                 let allItems = healthItems.concat(foodItems);
                 let itemIndex = prompt(`Select an item to use:\n${allItems.join('\n')}`);
                 if (itemIndex) {
@@ -812,25 +908,67 @@
 
                     item = FOOD_ITEMS.find(item => item.name === itemName) || HEALTH_ITEMS.find(item => item.name === itemName);
 
-                    //console.log(item);
-                    player.health += item.health;
-                    if (player.health > player['max-health']) {
-                        player.health = player['max-health'];
-                    }   
-                    // remove item from inventory - step through and find selected item and reduce count by one, if count is 0 remove item
-                    for (let i = 0; i < player.inventory.health.length; i++) {
-                        if (player.inventory.health[i].name === itemName) {
-                            player.inventory.health[i].quantity -= 1;
-                            if (player.inventory.health[i].quantity === 0) {
-                                player.inventory.health.splice(i, 1);
+                    // if item is potion then
+                    if (item.name == 'potion') {
+                        // random effects = anything up to -50 health, upto +500 health OR could transport you to a random room
+                        // remove from inventory
+                        for (let i = 0; i < player.inventory.health.length; i++) {
+                            if (player.inventory.health[i].name === itemName) {
+                                player.inventory.health[i].quantity -= 1;
+                                if (player.inventory.health[i].quantity === 0) {
+                                    player.inventory.health.splice(i, 1);
+                                }
                             }
                         }
-                    }
-                    for (let i = 0; i < player.inventory.food.length; i++) {
-                        if (player.inventory.food[i].name === itemName) {
-                            player.inventory.food[i].quantity -= 1;
-                            if (player.inventory.food[i].quantity === 0) {
-                                player.inventory.food.splice(i, 1);
+
+
+                        let randomEffect = Math.floor(Math.random() * 3);
+                        if (randomEffect === 0) {
+                            let healthChange = Math.floor(Math.random() * 50) * -1;
+                            player.health += healthChange;
+                            alert(`You drank the potion and lost ${healthChange} health. You now have ${player.health} health.`);
+                            if (player.health <= 0) {
+                                alert('You died!');
+                                location.reload();
+                            }
+                        } else if (randomEffect === 1) {
+                            player.health += Math.floor(Math.random() * 500);
+                            if (player.health > player['max-health']) {
+                                player.health = player['max-health'];
+                            }
+                            alert(`You drank the potion and gained health. You now have ${player.health} health.`);
+                        } else {
+                            let randomRoom = Math.floor(Math.random() * TOTAL_SCREENS);
+                            currentX = randomRoom % GRID_SIZE;
+                            currentY = Math.floor(randomRoom / GRID_SIZE);
+                            alert(`After drinking the potion you passed out and woke to find yourself in a different room.`);
+                            renderRoom();
+                        }
+                    } else { 
+                        if (player.health === player['max-health']) {
+                            alert('You are already at full health.');
+                            return;
+                        }
+                        //console.log(item);
+                        player.health += item.health;
+                        if (player.health > player['max-health']) {
+                            player.health = player['max-health'];
+                        }   
+                        // remove item from inventory - step through and find selected item and reduce count by one, if count is 0 remove item
+                        for (let i = 0; i < player.inventory.health.length; i++) {
+                            if (player.inventory.health[i].name === itemName) {
+                                player.inventory.health[i].quantity -= 1;
+                                if (player.inventory.health[i].quantity === 0) {
+                                    player.inventory.health.splice(i, 1);
+                                }
+                            }
+                        }
+                        for (let i = 0; i < player.inventory.food.length; i++) {
+                            if (player.inventory.food[i].name === itemName) {
+                                player.inventory.food[i].quantity -= 1;
+                                if (player.inventory.food[i].quantity === 0) {
+                                    player.inventory.food.splice(i, 1);
+                                }
                             }
                         }
                     }
@@ -866,6 +1004,131 @@
             }
             if (e.key === 'p') {
                 // pick up item
+                // check if there are items in the room to pick up - there could be multiple
+                let currentRoom = dungeon[getIndex(currentX, currentY)];
+                // items can include weapons, food, health, shields
+                // player can only hold one weapon and one shield at a time so must drop any they are carrying
+                // other items can be up to 10 each and held in inventory
+                // if there are multiple items prompt to select which to pick up
+                let items = [];
+                if (currentRoom.weapon) {
+                    items.push(currentRoom.weapon);
+                }
+                if (currentRoom.food) {
+                    items.push(currentRoom.food);
+                }
+                if (currentRoom.health) {
+                    items.push(currentRoom.health);
+                }
+                if (currentRoom.shield) {
+                    items.push(currentRoom.shield);
+                }
+                if (items.length === 0) {
+                    return;
+                }
+                let itemIndex = prompt(`Select an item to pick up:\n${items.map((item, index) => `${index + 1}. ${item}`).join('\n')}`);
+                itemIndex = parseInt(itemIndex) - 1;
+                console.log(items);
+                console.log(itemIndex);
+                if (itemIndex >= 0 && itemIndex < items.length) {
+                    console.log(items);
+                    console.log(items[itemIndex]);
+                    let item = items[itemIndex];
+                    // if item is a weapon, check if player is already carrying a weapon and drop it
+                    if (WEAPON_ITEMS.map(item => item.name).includes(item)) {
+                        if (player.inventory.weapon.length > 0) {
+                            let currentWeapon = player.inventory.weapon[0].name;
+                            let currentWeaponStrength = player.inventory.weapon[0].strength;
+                            let currentWeaponUses = player.inventory.weapon[0].uses;
+                            player.oldWeapon = currentWeapon;
+                            player.oldWeaponStrength = currentWeaponStrength;
+                            player.oldWeaponUses = currentWeaponUses;
+                            player.weaponstrength = 10;
+                            player.inventory.weapon = [];
+                            alert(`You drop your ${currentWeapon} and pick up the ${item}.`);
+                        }
+                        player.weaponstrength = currentRoom.weaponStrength;
+                        player.inventory.weapon.push({ 'name': item, 'strength': currentRoom.weaponStrength, 'uses': currentRoom.weaponUses });
+                        player.weaponuses = currentRoom.weaponUses;
+                        player.weapon = item;
+
+                    }
+                    // if item is a shield, check if player is already carrying a shield and drop it
+                    if (SHIELD_ITEMS.map(item => item.name).includes(item)) {
+                        if (player.inventory.shield.length > 0) {
+                            let currentShield = player.inventory.shield[0].name;
+                            let currentShieldStrength = player.inventory.shield[0].strength;
+                            let currentShieldUses = player.inventory.shield[0].uses;
+                            player.oldShield = currentShield;
+                            player.oldShieldStrength = currentShieldStrength;
+                            player.oldShieldUses = currentShieldUses;
+                            player.shieldstrength = currentShieldStrength;
+                            player.inventory.shield = [];
+                            alert(`You drop your ${currentShield} and pick up the ${item}.`);
+                        }
+                        player.shieldstrength = currentRoom.shieldStrength;
+                        player.inventory.shield.push({ 'name': item, 'strength': player.shieldstrength, 'uses': currentRoom.shieldUses });
+                        player.shielduses = currentRoom.shieldUses;
+                        player.shield = item;
+                    }
+                    // if item is food or health, add to inventory
+                    if (FOOD_ITEMS.map(item => item.name).includes(item) || HEALTH_ITEMS.map(item => item.name).includes(item)) {
+                        let inventoryItem = player.inventory.food.find(i => i.name === item) || player.inventory.health.find(i => i.name === item);
+                        if (inventoryItem) {
+                            inventoryItem.quantity += 1;
+                        } else {
+                            player.inventory.food.push({ 'name': item, 'quantity': 1 });
+                        }
+                        alert(`You pick up the ${item}.`);
+                    }
+                    if (currentRoom.weapon === item) {
+                        // if there is a currentweapon place it here otherwise set to null
+                        if (player.oldWeapon) {
+                            currentRoom.weapon = player.oldWeapon;
+                            currentRoom.weaponStrength = player.oldWeaponStrength;
+                            currentRoom.weaponUses = player.oldWeaponUses;
+                            // reset player old weapon
+                            player.oldWeapon = null;
+                            player.oldWeaponStrength = null;
+                            player.oldWeaponUses = null;
+
+                        } else {
+                            currentRoom.weapon = null;
+                            currentRoom.weaponStrength = null;
+                            currentRoom.weaponUses = null;
+                        }
+
+                    }
+                    if (currentRoom.food === item) {
+                        currentRoom.food = null;
+                        currentRoom.foodHealth = null;
+                    }
+                    if (currentRoom.health === item) {
+                        currentRoom.health = null;
+                        currentRoom.healthValue = null;
+                    }
+                    if (currentRoom.shield === item) {
+                        if (player.oldShield) {
+                            currentRoom.shield = player.oldShield;
+                            currentRoom.shieldStrength = player.oldShieldStrength;
+                            currentRoom.shieldUses = player.oldShieldUses;
+                            // reset player old shield
+                            player.oldShield = null;
+                            player.oldShieldStrength = null;
+                            player.oldShieldUses = null;
+                        } else {
+                            currentRoom.shield = null;
+                            currentRoom.shieldStrength = null;
+                            currentRoom.shieldUses = null;
+                        }
+
+                    }
+                }
+                // remove item from room
+                // remove anything other than the item name from the item
+                renderPlayerStatus();
+               
+                renderRoom();
             }
             if (e.key === 'e') {
                 // eat food item - allow to select from inventory
@@ -887,9 +1150,27 @@
             // make enemy angry
             currentRoom.enemyStatus = 'angry';
 
-            
+            // if player is carry a weapon reduced the available uses - if weapon uses is 0 remove weapon 'breaks' and remove from inventory and set weaponstrength to 10
+
+           
+
             let playerDamage = Math.floor(Math.random() * player.weaponstrength);
             let enemyDamage = Math.floor(Math.random() * currentRoom.enemyStrength);
+            if (player.shieldstrength > 0) {
+                let shieldBlock = Math.floor(Math.random() * player.shieldstrength);
+                enemyDamage -= shieldBlock;
+                if (enemyDamage < 0) {
+                    enemyDamage = 0;
+                }
+                player.shielduses -= 1;
+                if (player.shielduses === 0) {
+                    alert('Your ' + player.shield + ' breaks!');
+                    player.shieldstrength = 0;
+                    player.shielduses = -1;
+                    player.shield = 'None';
+                    player.inventory.shield = [];
+                }
+            }
             currentRoom.enemyHealth -= playerDamage;
             player.health -= enemyDamage;
 
@@ -900,6 +1181,27 @@
             renderEnemy(currentRoom, document.getElementById('game'));
 
         
+            if (player.weaponuses > 0 && player.weaponuses !== -1) {    
+                player.inventory.weapon[0].uses -= 1;
+                player.weaponuses -= 1;
+                if (player.weaponuses === 0) {
+                    if (player.weapon == 'Throwing Knives') {
+                        alert('You are out of knives!');
+                    } else if (player.weapon == 'Crossbow') {
+                        alert('You are out of bolts!');
+                    } else if (player.weapon == "Asterion's Wrath") {
+                        alert('Asterions Wrath disintegrates!');
+                    } else {
+                        alert('Your ' + player.weapon + ' breaks!');
+                    }
+                    
+                    player.weaponstrength = 10;
+                    player.weaponuses = -1;
+                    player.weapon = 'None';
+                    player.inventory.weapon = [];
+                }
+            }
+
             if (player.health <= 0) {
                 // player dies
                 let descriptionDiv = document.getElementById('description');
@@ -958,6 +1260,7 @@
         generateMaze();
         placeEnemies();
         placeWeapons();
+        placeItems();
 
         renderRoom();
     </script>
