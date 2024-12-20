@@ -101,8 +101,59 @@
             transform: translate(-50%, -50%);
             width: 40px;
             height: 40px;
+            border: 2px solid orange;
+        }
+
+        .health {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 2px solid red;
+        }
+
+        .shield {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 2px solid blue;
         }
     
+        .food {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 2px solid green;
+        }
+
+        .otherItem {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 2px solid silver;
+        }
+
+        .weapon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border:2px solid gold;
+        }
+
         #mini-map {
             display: grid;
             grid-template-columns: repeat(10, 32px);
@@ -111,6 +162,8 @@
             margin: 10px auto;
             width: max-content;
         }
+
+        
     
         .mini-room {
             width: 32px;
@@ -218,7 +271,15 @@
         #status-panel .health-fill {
             margin: 0; /* Ensure margin doesn't affect health bar */
         }
-    
+        .discovered.bossRoom {
+            background: #300 !important;
+        }
+        .discovered.oracleRoom {
+            background: #003 !important;
+        }
+        .discovered.exitRoom {
+            background: #030 !important;
+        }
         /* Mobile breakpoint: stack mini-map container elements */
         @media (max-width: 1000px) {
             #mini-map-container {
@@ -268,13 +329,27 @@
         };
 
         const ENEMY_STATUSES = ["sleeping", "uninterested", "angry", "hungry", "curious"];
+        // calculate the corner rooms
+
+        const CORNER_ROOMS_COORDINATES = [
+            { x: 0, y: 0 },
+            { x: GRID_SIZE - 1, y: 0 },
+            { x: 0, y: GRID_SIZE - 1 },
+            { x: GRID_SIZE - 1, y: GRID_SIZE - 1 }
+        ];
 
         const EXITS = [
             {
                 name: "Oracle's Cauldron",
                 activationArtifact: "Oracle's Potion",
-                roomX: 0,
-                roomY: 0
+            },
+            {
+                name: "Locked Door",
+                activationArtifact: "Oracle's Key",
+            },
+            {
+                name: "Mystical Portal",
+                activationArtifact: "Oracle's Portal Charm",
             }
         ]
 
@@ -313,6 +388,10 @@
             { name: "Golden Shield", strength: 80, uses: 30 },
             { name: "Diamond Shield", strength: 100, uses: 10000 }
         ];
+        const OTHER_ITEMS = [
+            // map - maybe others later
+            { name: "Map", description: "A map of the dungeon", count: 10 }
+        ]
 
         const WEAPON_ITEMS = [
             { name: "Wooden Sword", strength: 20, uses: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.5) }, // Increased maxCount
@@ -328,7 +407,7 @@
             { name: "Asterion's Wrath", strength: 1000, uses: 1, maxCount: Math.floor(TOTAL_SCREENS * 0.01) } // Extremely powerful, one-time use
         ];
 
-        const ARTIFACTS = ["Oracle's Potion", "Sword of Power", "Shield of Ages", "Ring of Fate", "Amulet of Souls"];
+        let ARTIFACTS = ["Sword of Power", "Shield of Ages", "All Seeing Eye", "Amulet of Souls"];
 
         const dungeon = Array.from({ length: TOTAL_SCREENS }, () => ({
             exits: [],
@@ -425,16 +504,34 @@
         }
 
         function placeEnemies() {
-            console.log('Placing enemies in the dungeon');
+            //console.log('Placing enemies in the dungeon');
             const bossPositions = new Set();
             while (bossPositions.size < BOSS_TYPES.length) {
-                const pos = Math.floor(Math.random() * TOTAL_SCREENS / 2); // Only top half of the dungeon
+                const pos = Math.floor(Math.random() * TOTAL_SCREENS / 1.5); // Only top half of the dungeon
                 if (pos !== 0 && pos !== TOTAL_SCREENS - 1) {
                     bossPositions.add(pos);
                     const bossIndex = bossPositions.size - 1;
                     dungeon[pos].isBoss = true;
                     dungeon[pos].enemy = BOSS_TYPES[bossIndex].name;
-                    dungeon[pos].artifact = ARTIFACTS[bossIndex];
+              
+                    if (bossIndex === 0) {
+                        let possibleOracleArtifacts = ["Oracle's Potion", "Oracle's Key", "Oracle's Portal Charm"]; 
+                        dungeon[pos].artifact = possibleOracleArtifacts[Math.floor(Math.random() * possibleOracleArtifacts.length)];
+                    
+                    } else {
+                        dungeon[pos].artifact = ARTIFACTS[bossIndex];
+                        let unassignedArtifacts = ARTIFACTS.filter(artifact => !dungeon.some(room => room.artifact === artifact));
+                        if (unassignedArtifacts.length > 0) {
+                            dungeon[pos].artifact = unassignedArtifacts[Math.floor(Math.random() * unassignedArtifacts.length)];
+                        } else {
+                            dungeon[pos].artifact = ARTIFACTS[Math.floor(Math.random() * ARTIFACTS.length)];
+                        }
+                    }
+
+                    
+
+                    
+
                     // add health to boss
                     dungeon[pos].enemyHealth = BOSS_TYPES[bossIndex].health;
                     dungeon[pos].enemyMaxHealth = BOSS_TYPES[bossIndex].health;
@@ -442,7 +539,6 @@
                     // status is always angry
                     dungeon[pos].enemyStatus = BOSS_TYPES[bossIndex].status;
                     dungeon[pos].enemyScore = BOSS_TYPES[bossIndex].score;
-                    console.log('Placed boss', dungeon[pos].enemy, 'in room', pos);
                     gameStatus.totalBosses += 1;
                 }
             }
@@ -459,7 +555,6 @@
                             room.enemyStrength = randomEnemy.strength;
                             room.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
                             room.enemyScore = randomEnemy.score;
-                            console.log('Placed', room.enemyStatus, room.enemy, 'in room', index, 'there are', enemyCount + 1, 'of them');
                             gameStatus.totalEnemies += 1;
                         }
                     }
@@ -506,6 +601,18 @@
                 room.shieldStrength = randomShield.strength;
                 room.shieldUses = randomShield.uses;
             }
+
+            if (Math.random() < 0.2 && index !== 0 && index !== TOTAL_SCREENS - 1) {
+                var otherItem = OTHER_ITEMS[Math.floor(Math.random() * OTHER_ITEMS.length)];
+                // count how many have been placed already of this item in the dungeon and if it is less than the count, place it
+                var itemCount = dungeon.filter(r => r.otherItem === otherItem.name).length;
+
+                if (itemCount < otherItem.count) {
+                    room.otherItem = otherItem.name;
+                }
+            }
+
+           
           });
            
       
@@ -517,7 +624,7 @@
             const gameDiv = document.getElementById('game');
             const descriptionDiv = document.getElementById('description');
             gameDiv.innerHTML = '';  // Clear previous room
-            console.log(getIndex(currentX, currentY));
+         //   console.log(getIndex(currentX, currentY));
             const currentRoom = dungeon[getIndex(currentX, currentY)];
             if (!currentRoom.discovered) { 
                 gameStatus.discoveredRooms += 1;
@@ -532,7 +639,7 @@
                 currentRoom.exits = currentRoom.storedExits;
                 currentRoom.storedExits = null;
             }
-            console.log(currentRoom);
+            //console.log(currentRoom);
 
             // Helper function to create a jagged rocky wall at the edges of the room
             function createRockyWall(direction) {
@@ -618,6 +725,11 @@
             if (currentRoom.dungeonExits) {
                 renderDungeonExit(currentRoom, gameDiv);
             }
+
+            if (currentRoom.otherItem) {
+                renderOtherItem(currentRoom, gameDiv);
+            }
+
             // Place the artifact further left from the enemy (if this is a boss room)
             if (currentRoom.isBoss) {
             const artifactDiv = document.createElement('img');
@@ -662,10 +774,20 @@
             if (currentRoom.shield) {
                 items.push(`${['a', 'e', 'i', 'o', 'u'].includes(currentRoom.shield[0].toLowerCase()) ? 'an' : 'a'} ${currentRoom.shield}`);
             }
+            if (currentRoom.otherItem) {
+                items.push(`${['a', 'e', 'i', 'o', 'u'].includes(currentRoom.otherItem[0].toLowerCase()) ? 'an' : 'a'} ${currentRoom.otherItem}`);
+            }
             if (items.length > 0) {
                 const lastItem = items.pop();
                 description += ` You see ${items.join(', ')}${items.length > 0 ? ' and ' : ''}${lastItem} here.`;
             }
+
+            if (currentRoom.dungeonExits.length > 0) {
+                currentRoom.dungeonExits.forEach(exit => {
+                    description += ` There is a ${exit.name} here. You need the ${exit.activationArtifact} to escape.`;
+                });
+            }
+
             descriptionDiv.innerHTML = description;
 
             const infoDiv = document.getElementById('info');
@@ -688,6 +810,7 @@
             if (currentRoom.weapon || currentRoom.artifact || currentRoom.food || currentRoom.health) {
                 infoText += ' There is something here to pick up.';
             }
+         
 
             infoText += ' (Controls: ';
             if (currentRoom.enemy) {
@@ -713,7 +836,7 @@
             renderPlayerStatus();
             renderInventory();  // Update inventory after rendering the room
             renderMiniMap();  // Update mini-map after rendering the room
-            console.log(player, gameStatus);
+        //    console.log(player, gameStatus);
         }
 
         function renderPlayerStatus() {
@@ -795,7 +918,7 @@
         function renderWeapon(currentRoom, gameDiv) {
             const weaponImg = document.createElement('img');
             weaponImg.src = `images/${currentRoom.weapon.toLowerCase().replaceAll(' ', '_')}.png`;
-            weaponImg.className = 'artifact';
+            weaponImg.className = 'weapon';
             weaponImg.alt = currentRoom.weapon;
 
             // Position the weapon in the room
@@ -806,23 +929,36 @@
         function renderFood(currentRoom, gameDiv) {
             const foodImg = document.createElement('img');
             foodImg.src = `images/${currentRoom.food.toLowerCase().replaceAll(' ', '_')}.png`;
-            foodImg.className = 'artifact';
+            foodImg.className = 'food';
             foodImg.alt = currentRoom.food;
 
             // Position the food in the room
-            foodImg.style.left = '40%';  // Adjust this value to place the food
+            foodImg.style.left = '70%';  // Adjust this value to place the food
             foodImg.style.top = '50%';   // Center vertically
             gameDiv.appendChild(foodImg);
+        }
+
+        function renderOtherItem(currentRoom, gameDiv) {
+            const otherImg = document.createElement('img');
+            otherImg.src = `images/${currentRoom.otherItem.toLowerCase().replaceAll(' ', '_')}.png`;
+            otherImg.className = 'otherItem';
+            otherImg.alt = currentRoom.otherItem;
+
+            // Position the item in the room
+            otherImg.style.left = '50%';  // Adjust this value to place the item
+            otherImg.style.top = '50%';   // Center vertically
+
+            gameDiv.appendChild(otherImg);
         }
 
         function renderHealth(currentRoom, gameDiv) {
             const healthImg = document.createElement('img');
             healthImg.src = `images/${currentRoom.health.toLowerCase().replaceAll(' ', '_')}.png`;
-            healthImg.className = 'artifact';
+            healthImg.className = 'health';
             healthImg.alt = currentRoom.health;
 
             // Position the health in the room
-            healthImg.style.left = '50%';  // Adjust this value to place the health
+            healthImg.style.left = '60%';  // Adjust this value to place the health
             healthImg.style.top = '50%';   // Center vertically
             gameDiv.appendChild(healthImg);
         }
@@ -830,11 +966,11 @@
         function renderShield(currentRoom, gameDiv) {
             const shieldImg = document.createElement('img');
             shieldImg.src = `images/${currentRoom.shield.toLowerCase().replaceAll(' ', '_')}.png`;
-            shieldImg.className = 'artifact';
+            shieldImg.className = 'shield';
             shieldImg.alt = currentRoom.shield;
 
             // Position the shield in the room
-            shieldImg.style.left = '60%';  // Adjust this value to place the shield
+            shieldImg.style.left = '40%';  // Adjust this value to place the shield
             shieldImg.style.top = '50%';   // Center vertically
             gameDiv.appendChild(shieldImg);
         }
@@ -853,6 +989,20 @@
                 roomDiv.classList.add('discovered');
             } else {
                 roomDiv.style.backgroundColor = 'black';  // Set undiscovered rooms to black
+            }
+            
+            // if room contains a boss, add a boss class
+            if (room.isBoss) {
+                // if boss is oracle then add oracle class
+                if (room.enemy == 'Oracle') {
+                    roomDiv.classList.add('oracleRoom');
+                }
+                roomDiv.classList.add('bossRoom');
+            }
+
+            // if room contains a dungeonExit, add a dungeonExit class
+            if (room.dungeonExits.length > 0) {
+                roomDiv.classList.add('exitRoom');
             }
 
             // Add the 'current' class if this is the current room
@@ -888,7 +1038,7 @@
         }
 
         function movePlayer(direction) {
-            console.log('moving player', direction);
+        //    console.log('moving player', direction);
             const [dx, dy] = DIRECTIONS[direction];
             const nextX = currentX + dx;
             const nextY = currentY + dy;
@@ -923,6 +1073,22 @@
             if (e.key === 'ArrowLeft') movePlayer('LEFT');
             if (e.key === 'ArrowRight') movePlayer('RIGHT');
             // add controls for Give (G), 'Attack (A)', 'Run (R)', 'Pick Up (P)', 'Eat (E)'
+
+            if (e.key == 'q') {
+                // cheat mode - make every room in the mini map visible and allow the player to just click rooms to move
+                dungeon.forEach(room => room.discovered = true);
+                renderMiniMap();
+                // step through mini map and add event listener to each room div to move player to that room
+                document.querySelectorAll('.mini-room').forEach((roomDiv, index) => {
+                    roomDiv.addEventListener('click', () => {
+                        currentX = index % GRID_SIZE;
+                        currentY = Math.floor(index / GRID_SIZE);
+                        renderRoom();
+                    });
+                });
+
+            }
+
             if (e.key === 'g') {
                 // give item to enemy (food for hungry enemies)
                 // allow to select from inventory
@@ -959,10 +1125,26 @@
                             }
                         }
                         // give the player the Oracle's Potion
-                        player.inventory.artifacts.push({ name: "Oracle's Potion", quantity: 1 });
+                        const randomArtifact = EXITS.map(exit => exit.activationArtifact)[Math.floor(Math.random() * EXITS.length)];
+                        player.inventory.artifacts.push({ name: randomArtifact, quantity: 1 });
                         player.score += 1000;
                         player.percentcomplete += 5;
-                        alert(`You gave the Oracle the ${itemName}. The Oracle gave you a magical potion in return. Before disappearing the Oracle says, "You are on the right path. This potion will return you home."`);
+                        let artifactMessage = '';
+                        switch (randomArtifact) {
+                            case "Oracle's Potion":
+                                artifactMessage = `This potion will grant you great power. Use it to activate the Oracle's Cauldron.`;
+                                break;
+                            case "Oracle's Key":
+                                artifactMessage = `This key will unlock the path ahead. Use it to open the Locked Door.`;
+                                break;
+                            case "Oracle's Portal Charm":
+                                artifactMessage = `This charm will transport you to new realms. Use it to activate the Mystical Portal.`;
+                                break;
+                            default:
+                                artifactMessage = 'This artifact will help you on your journey.';
+                                break;
+                        }
+                        alert(`You gave the Oracle the ${itemName}. The Oracle gave you the ${randomArtifact} in return. Before disappearing the Oracle says, "${artifactMessage}"`);
                         currentRoom.enemy = null;
                         currentRoom.enemyStatus = null;
                         currentRoom.artifact = null;
@@ -1023,18 +1205,19 @@
 
                 // if the user has the oracle's potion and the room has the oracle's cauldron dungeonExit use them and complete the game
                 let currentRoom = dungeon[getIndex(currentX, currentY)];
-                if (currentRoom.dungeonExits && player.inventory.artifacts.find(item => item.name === "Oracle's Potion")) {
-                    // complete game = 5% of percentage complete
-                    // 5% for each artifact in inventory
-                    player.percentcomplete += 5 * player.inventory.artifacts.length;
-                    player.percentcomplete += 5;
-                    // score = 1000 for each artifact in inventory + 5000 for complete
-                    player.score += 1000 * player.inventory.artifacts.length;
-                    player.score += 5000;
+                if (currentRoom.dungeonExits && currentRoom.dungeonExits.length > 0) {
 
-                    alert(`You used the Oracle's Potion and returned home. You have completed the game! Your final score is ${player.score} and you completed ${player.percentcomplete.toFixed(2)}% of the dungeon.`);
-                    location.reload();
-                    return;
+                    // step through exits and if activationArtifact is one of the player's artifacts then complete the game
+                    for (let i = 0; i < currentRoom.dungeonExits.length; i++) {
+                        if (player.inventory.artifacts.find(item => item.name === currentRoom.dungeonExits[i].activationArtifact)) {
+                            player.inventory.artifacts = player.inventory.artifacts.filter(item => item.name !== currentRoom.dungeonExits[i].activationArtifact);
+                            player.score += 1000;
+                            player.percentcomplete += 5;
+                            alert(`You used the ${currentRoom.dungeonExits[i].activationArtifact} to activate the ${currentRoom.dungeonExits[i].name} and returned home. You have completed the game! Your final score is ${player.score} and you completed ${player.percentcomplete.toFixed(2)}% of the dungeon.`);
+                            location.reload();
+                            return;
+                        }
+                    }
                 }
 
                 
@@ -1179,6 +1362,11 @@
                 if (currentRoom.shield) {
                     items.push(currentRoom.shield);
                 }
+                if (currentRoom.otherItem) {
+                    // if the item == the map then reveal a random number of rooms - up to 10 on the mini-map around the player
+                    items.push(currentRoom.otherItem);
+
+                }
                
                 if (items.length === 0) {
                     return;
@@ -1188,6 +1376,27 @@
                 console.log(items);
                 console.log(itemIndex);
                 if (itemIndex >= 0 && itemIndex < items.length) {
+                    // if there is an enemy in the room and the item is picked up then they become angry and block the exits - tell the user
+                    if (currentRoom.enemy && currentRoom.enemyStatus !== 'angry' && currentRoom.enemyStatus !== 'sleeping') {
+                        currentRoom.enemyStatus = 'angry';
+                        currentRoom.storedExits = currentRoom.exits;
+                       
+                        alert(`The ${currentRoom.enemy} becomes angry and blocks the exits.`);
+                    } else if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
+                        if (Math.random() < 0.8) {
+                            alert('The ' + currentRoom.enemy + ' wakes up!');
+                            let newStatus;
+                            do {
+                                newStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
+                            } while (newStatus === 'sleeping');
+                            currentRoom.enemyStatus = newStatus;
+                            if (newStatus === 'angry' || newStatus === 'hungry') {
+                                currentRoom.storedExits = currentRoom.exits;
+                            }
+                            renderRoom();
+                            return;
+                        }
+                    }
                     console.log(items);
                     console.log(items[itemIndex]);
                     let item = items[itemIndex];
@@ -1238,6 +1447,45 @@
                         }
                         alert(`You pick up the ${item}.`);
                     }
+                    if (OTHER_ITEMS.map(item => item.name).includes(item)) {
+                        // if the item is the map then reveal a random number of rooms around the player
+
+                        if (item == 'Map') {
+                            // reveal a random number of rooms around the player
+                            let roomsRevealed = Math.floor(Math.random() * 10) + 1;
+                            let currentRoomIndex = getIndex(currentX, currentY);
+                            let adjacentRooms = [];
+
+                            // Get all adjacent rooms
+                            for (let dx = -1; dx <= 1; dx++) {
+                                for (let dy = -1; dy <= 1; dy++) {
+                                    if (dx === 0 && dy === 0) continue; // Skip the current room
+                                    let nx = currentX + dx;
+                                    let ny = currentY + dy;
+                                    if (isInBounds(nx, ny)) {
+                                        adjacentRooms.push(getIndex(nx, ny));
+                                    }
+                                }
+                            }
+
+                            // Randomly select rooms to reveal
+                            let rooms = [];
+                            for (let i = 0; i < roomsRevealed && adjacentRooms.length > 0; i++) {
+                                let randomIndex = Math.floor(Math.random() * adjacentRooms.length);
+                                rooms.push(adjacentRooms.splice(randomIndex, 1)[0]);
+                            }
+
+                            rooms.forEach(room => {
+                                dungeon[room].discovered = true;
+                            });
+                            alert(`The map reveals some of the surrounding caves.`);
+                            //remove the map
+                            renderMiniMap();
+                        }
+                        currentRoom.otherItem = null;
+
+                    }
+
                     if (currentRoom.weapon === item) {
                         // if there is a currentweapon place it here otherwise set to null
                         if (player.oldWeapon) {
@@ -1313,6 +1561,11 @@
 
             let playerDamage = Math.floor(Math.random() * player.weaponstrength);
             let enemyDamage = Math.floor(Math.random() * currentRoom.enemyStrength);
+            if (currentRoom.enemyStatus === 'sleeping') {
+                enemyDamage = Math.floor(enemyDamage * 0.5); // Reduce damage if enemy is sleeping
+            } else if (currentRoom.enemyStatus === 'angry') {
+                enemyDamage = Math.floor(enemyDamage * 1.5); // Increase damage if enemy is angry
+            }
             if (player.shieldstrength > 0) {
                 let shieldBlock = Math.floor(Math.random() * player.shieldstrength);
                 enemyDamage -= shieldBlock;
@@ -1388,6 +1641,45 @@
                     currentRoom.isBoss = false;
                     // add the artifact to the player inventory
                     player.inventory.artifacts.push({ 'name': currentRoom.artifact, 'quantity': 1 });
+                    // set ALL enemies to angry
+                    dungeon.forEach(room => {
+                        if (room.enemy) {
+                            room.enemyStatus = 'angry';
+                        }
+                    });
+
+                    // if artifact == All Seeing Eye then reveal all rooms
+                    if (currentRoom.artifact === 'All Seeing Eye') {
+                        dungeon.forEach(room => {
+                            room.discovered = true;
+                        });
+                    }
+
+                    // if artifact == Sword of Power then weapon strength set to 100000, uses 100000
+                    if (currentRoom.artifact === 'Sword of Power') {
+                        player.weaponstrength = 500;
+                        player.weaponuses = 10000;
+                        // set player weapon to Sword of Power
+                        player.weapon = 'Sword of Power';
+                        
+                    }
+
+                    // if artifact == Shield of Light then shield strength set to 100000, uses 100000
+                    if (currentRoom.artifact === 'Shield of Ages') {
+                        player.shieldstrength = 500;
+                        player.shielduses = 10000;
+                        // set player shield to Shield of Light
+                        player.shield = 'Shield of Ages';
+                    }
+
+                    // artifact == Amulet of Souls then player health set to 10000, max health set to 10000
+                    if (currentRoom.artifact === 'Amulet of Souls') {
+                        player.health = 1000;
+                        player['max-health'] = 1000;
+                    }
+
+
+
                     //remove the artifact from the room
                     alert(`You have found the ${currentRoom.artifact}.`);
                     // add 1000 to score for getting artifact
@@ -1437,9 +1729,9 @@
             // Place exits in random rooms
             // step through EXITS and add to appropriate room index
             EXITS.forEach(exit => {
-                // add exit to roomX, roomY
-                let roomX = exit.roomX;
-                let roomY = exit.roomY;
+                let roomX = CORNER_ROOMS_COORDINATES[0].x;
+                let roomY = CORNER_ROOMS_COORDINATES[0].y;
+                CORNER_ROOMS_COORDINATES.shift();
                 let roomIndex = getIndex(roomX, roomY);
                 dungeon[roomIndex].dungeonExits.push({name: exit.name, activationArtifact: exit.activationArtifact});
             });
@@ -1464,7 +1756,7 @@
         placeEnemies();
         placeWeapons();
         placeItems();
-        placeDungeonExits();
+placeDungeonExits();
 
 
 
