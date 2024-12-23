@@ -382,7 +382,7 @@
                     'Boss': 1
                 }
             },
-            'Insane': {
+            'Extreme': {
                 'health': 0.5,
                 'strength': 0.5,
                 'enemyMultipliers' : {
@@ -652,7 +652,7 @@
                             room.enemyStrength = randomEnemy.strength;
                             room.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
                             // if player.difficulty is  > hard then remove sleeping, uninterested and curious
-                            if (player.difficulty === 'Hard' || player.difficulty === 'Insane' || player.difficulty === 'Impossible') {
+                            if (player.difficulty === 'Hard' || player.difficulty === 'Extreme' || player.difficulty === 'Impossible') {
                                 room.enemyStatus = room.enemyStatus === 'sleeping' || room.enemyStatus === 'uninterested' || room.enemyStatus === 'curious' ? 'angry' : room.enemyStatus;
                             }
                             room.enemyScore = randomEnemy.score;
@@ -1906,7 +1906,7 @@
             const difficultyButtons = document.createElement('div');
             difficultyButtons.id = 'difficulty-buttons';
 
-            const difficulties = ['Easy', 'Medium', 'Hard', 'Insane', 'Impossible'];
+            const difficulties = ['Easy', 'Medium', 'Hard', 'Extreme', 'Impossible'];
             difficulties.forEach((difficulty) => {
                 const button = document.createElement('button');
                 button.textContent = difficulty;
@@ -1952,8 +1952,8 @@
                 });
             }
 
-            // if insane or impossible remove the map 
-            if (difficulty === 'Insane' || difficulty === 'Impossible') {
+            // if Extreme or impossible remove the map 
+            if (difficulty === 'Extreme' || difficulty === 'Impossible') {
                 document.getElementById('mini-map').style.display = 'none';
             }
 
