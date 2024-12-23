@@ -3,16 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungeon Explorer</title>
+    <title>The Oracle's Dungeon</title>
+
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Metamorphous&display=swap" rel="stylesheet">
+
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: "Metamorphous", serif;
+            font-weight: 400;
+            font-style: normal;            
             text-align: center;
             background-color: #111;
             color: white;
             margin: 0;
             max-width: 1280px;
             margin: 0 auto;
+
         }
     
         .wall-container {
@@ -303,7 +312,7 @@
     
 </head>
 <body>
-    <h1>Dungeon Explorer</h1>
+    <h1>The Oracle's Dungeon</h1>
     <div id="status-panel"></div>
     <div id="game"></div>
     <div id="mini-map-container">
@@ -326,6 +335,81 @@
             DOWN: [0, 1],
             LEFT: [-1, 0],
             RIGHT: [1, 0]
+        };
+
+
+        const DIFFICULTY_MULTIPLIERS = {
+            'Easy': {
+                'health': 2,
+                'strength': 2,
+                'enemyMultipliers' : {
+                    'Goblin': 5,
+                    'Troll': 4,
+                    'Orc': 3,
+                    'Cyclops': 1,
+                    'Wraith': 0.5,
+                    'Minotaur': 0.25,
+                    'Demon': 0.1,
+                    'Boss': 0.5
+                }
+            },
+            'Medium': {
+                'health': 1.5,
+                'strength': 1.5,
+                'enemyMultipliers' : {
+                    'Goblin': 2,
+                    'Troll': 1.5,
+                    'Orc': 1,
+                    'Cyclops': 1,
+                    'Wraith': 0.75,
+                    'Minotaur': 0.5,
+                    'Demon': 0.25,
+                    'Boss': 0.75
+                }
+
+            },
+            'Hard': {
+                'health': 1,
+                'strength': 1,
+                'enemyMultipliers' : {
+                    'Goblin': 1,
+                    'Troll': 1,
+                    'Orc': 1,
+                    'Cyclops': 1,
+                    'Wraith': 1,
+                    'Minotaur': 1,
+                    'Demon': 1,
+                    'Boss': 1
+                }
+            },
+            'Insane': {
+                'health': 0.5,
+                'strength': 0.5,
+                'enemyMultipliers' : {
+                    'Goblin': 0.5,
+                    'Troll': 0.75,
+                    'Orc': 0.8,
+                    'Cyclops': 1,
+                    'Wraith': 2,
+                    'Minotaur': 3,
+                    'Demon': 4,
+                    'Boss': 2
+                }
+            },
+            'Impossible': {
+                'health': 0.25,
+                'strength': 0.25,
+                'enemyMultipliers' : {
+                    'Goblin': 0.1,
+                    'Troll': 0.25,
+                    'Orc': 0.5,
+                    'Cyclops': 1,
+                    'Wraith': 3,
+                    'Minotaur': 5,
+                    'Demon': 10,
+                    'Boss': 5
+                }
+            }
         };
 
         const ENEMY_STATUSES = ["sleeping", "uninterested", "angry", "hungry", "curious"];
@@ -362,6 +446,7 @@
             { name: "Minotaur", health: 300, strength: 60, maxCount: Math.floor(TOTAL_SCREENS * 0.05), score: 60 },
             { name: "Demon", health: 500, strength: 70, maxCount: Math.floor(TOTAL_SCREENS * 0.02), score: 100 },
         ];
+        
         const BOSS_TYPES = [
             { name: "Oracle", health: 10000, strength: 10000, status: "mystical", score: 1000 },
             { name: "Ancient Dragon", health: 1000, strength: 100, status: "angry", score: 1000 },
@@ -533,12 +618,20 @@
                     
 
                     // add health to boss
+
+
                     dungeon[pos].enemyHealth = BOSS_TYPES[bossIndex].health;
+                    // use difficulty multtiplier to adjust the health and strength of the boss
+                    dungeon[pos].enemyHealth = Math.floor(dungeon[pos].enemyHealth * DIFFICULTY_MULTIPLIERS[player.difficulty].enemyMultipliers.Boss);
                     dungeon[pos].enemyMaxHealth = BOSS_TYPES[bossIndex].health;
                     dungeon[pos].enemyStrength = BOSS_TYPES[bossIndex].strength;
+                    dungeon[pos].enemyStrength = Math.floor(dungeon[pos].enemyStrength * DIFFICULTY_MULTIPLIERS[player.difficulty].enemyMultipliers.Boss);
+                
                     // status is always angry
                     dungeon[pos].enemyStatus = BOSS_TYPES[bossIndex].status;
                     dungeon[pos].enemyScore = BOSS_TYPES[bossIndex].score;
+                    // console.log boss information
+                    console.log(`Boss ${bossIndex + 1}: ${dungeon[pos].enemy} placed in room ${pos} with ${dungeon[pos].enemyHealth} health and ${dungeon[pos].enemyStrength} strength`);
                     gameStatus.totalBosses += 1;
                 }
             }
@@ -548,12 +641,20 @@
                     if (Math.random() < 0.8) {
                         var randomEnemy = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
                         var enemyCount = dungeon.filter(r => r.enemy === randomEnemy.name).length;
+                        // apply the enemyMutliplier based on the difficulty and the randomEnemy name
+                        var countMultiplier = DIFFICULTY_MULTIPLIERS[player.difficulty].enemyMultipliers[randomEnemy.name];
+                        randomEnemy.maxCount = Math.floor(randomEnemy.maxCount * countMultiplier);
+
                         if (enemyCount < randomEnemy.maxCount) {
                             room.enemy = randomEnemy.name;
                             room.enemyHealth = randomEnemy.health;
                             room.enemyMaxHealth = randomEnemy.health;
                             room.enemyStrength = randomEnemy.strength;
                             room.enemyStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
+                            // if player.difficulty is  > hard then remove sleeping, uninterested and curious
+                            if (player.difficulty === 'Hard' || player.difficulty === 'Insane' || player.difficulty === 'Impossible') {
+                                room.enemyStatus = room.enemyStatus === 'sleeping' || room.enemyStatus === 'uninterested' || room.enemyStatus === 'curious' ? 'angry' : room.enemyStatus;
+                            }
                             room.enemyScore = randomEnemy.score;
                             gameStatus.totalEnemies += 1;
                         }
@@ -561,6 +662,10 @@
                 }
             });
             console.log('Placed ' + dungeon.filter(r => r.enemy).length + ' enemies in the dungeon');
+            ENEMY_TYPES.forEach(enemyType => {
+                const count = dungeon.filter(room => room.enemy === enemyType.name).length;
+                console.log(`Placed ${count} ${enemyType.name}(s) in the dungeon`);
+            });
         
         }
 
@@ -1371,6 +1476,7 @@
                 if (items.length === 0) {
                     return;
                 }
+                console.log(currentRoom);
                 let itemIndex = prompt(`Select an item to pick up:\n${items.map((item, index) => `${index + 1}. ${item}`).join('\n')}`);
                 itemIndex = parseInt(itemIndex) - 1;
                 console.log(items);
@@ -1378,10 +1484,16 @@
                 if (itemIndex >= 0 && itemIndex < items.length) {
                     // if there is an enemy in the room and the item is picked up then they become angry and block the exits - tell the user
                     if (currentRoom.enemy && currentRoom.enemyStatus !== 'angry' && currentRoom.enemyStatus !== 'sleeping') {
+                        if (currentRoom.enemyStatus !== 'angry' && currentRoom.enemyStatus !== 'hungry') {
+                            currentRoom.storedExits = currentRoom.exits;
+
+                            currentRoom.exits = [];
+                        }
                         currentRoom.enemyStatus = 'angry';
-                        currentRoom.storedExits = currentRoom.exits;
                        
                         alert(`The ${currentRoom.enemy} becomes angry and blocks the exits.`);
+                        console.log(currentRoom);
+                        renderRoom();return;
                     } else if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
                         if (Math.random() < 0.8) {
                             alert('The ' + currentRoom.enemy + ' wakes up!');
@@ -1392,6 +1504,8 @@
                             currentRoom.enemyStatus = newStatus;
                             if (newStatus === 'angry' || newStatus === 'hungry') {
                                 currentRoom.storedExits = currentRoom.exits;
+                                currentRoom.exits = [];
+
                             }
                             renderRoom();
                             return;
@@ -1556,10 +1670,11 @@
             currentRoom.enemyStatus = 'angry';
 
             // if player is carry a weapon reduced the available uses - if weapon uses is 0 remove weapon 'breaks' and remove from inventory and set weaponstrength to 10
-
-           
-
             let playerDamage = Math.floor(Math.random() * player.weaponstrength);
+
+            // use the strength mutliplier for the user difficulty
+            playerDamage = Math.floor(playerDamage * DIFFICULTY_MULTIPLIERS[player.difficulty].strength);
+
             let enemyDamage = Math.floor(Math.random() * currentRoom.enemyStrength);
             if (currentRoom.enemyStatus === 'sleeping') {
                 enemyDamage = Math.floor(enemyDamage * 0.5); // Reduce damage if enemy is sleeping
@@ -1752,15 +1867,102 @@
             }
         }
 
-        generateMaze();
-        placeEnemies();
-        placeWeapons();
-        placeItems();
-placeDungeonExits();
 
 
+        // Show start screen - some placeholder instructions to fill in and then five difficulty options to choose from
 
-        renderRoom();
+        function renderStartScreen() {
+            const gameDiv = document.getElementById('game');
+            gameDiv.innerHTML = ''; // Clear the game
+
+            const startDiv = document.createElement('div');
+            startDiv.id = 'start-screen';
+
+            const title = document.createElement('h1');
+            title.textContent = 'Welcome to The Oracle\'s Dungeon';
+            startDiv.appendChild(title);
+
+            const instructions = document.createElement('p');
+            instructions.style.padding = '20px 50px';
+            instructions.style.lineHeight = '2';
+            instructions.style.fontSize = '20px';
+            //element.style {
+//    padding: 20px;
+//    line-height: 2;
+//    font-size: 20px;
+//}
+
+            instructions.textContent = `
+                The Oracle's Dungeon is a browser-based adventure game loosely based upon the classic 8-bit title, "The Oracle's Cave".
+
+                You are an adventurer who wakes up in a mysterious dungeon. Your goal is to explore the dungeon, defeat enemies, and collect artifacts to escape. There are many mystical creatures to discover, weapons to find and artifacts that will aid you on your quest. Once you have one of the four artifacts you can take it to the Oracle and trade it for one of the Oracle's own artifacts - which can then be used at one of the four exits to escape.
+            `;
+            startDiv.appendChild(instructions);
+
+            const difficulty = document.createElement('p');
+            difficulty.textContent = 'Choose a difficulty:';
+            startDiv.appendChild(difficulty);
+
+            const difficultyButtons = document.createElement('div');
+            difficultyButtons.id = 'difficulty-buttons';
+
+            const difficulties = ['Easy', 'Medium', 'Hard', 'Insane', 'Impossible'];
+            difficulties.forEach((difficulty) => {
+                const button = document.createElement('button');
+                button.textContent = difficulty;
+                button.style.padding = '6px';
+                button.style.fontSize = '20px';
+                button.style.fontFamily = 'Metamorphous';
+                button.style.margin = '10px';
+                button.style.cursor = 'pointer';
+                button.addEventListener('click', () => startGame(difficulty));
+                difficultyButtons.appendChild(button);
+            });
+
+            startDiv.appendChild(difficultyButtons);
+            gameDiv.appendChild(startDiv);
+        }
+
+        function startGame(difficulty) {
+            // set player difficulty
+            player.difficulty = difficulty;
+            // multiply the starting health by the difficulty multiplier for health
+            player.health = player.health * DIFFICULTY_MULTIPLIERS[difficulty].health;
+
+            
+            generateMaze();
+            placeEnemies();
+            placeWeapons();
+            placeItems();
+            placeDungeonExits();
+
+            // if easy reveal the exits, rooms with bosses and the oracle 
+            if (difficulty === 'Easy') {
+                dungeon.forEach(room => {
+                        room.discovered = true;
+                    
+                });
+            }
+
+            if (difficulty === 'Medium') {
+                dungeon.forEach(room => {
+                    if (room.dungeonExits.length > 0 || room.isBoss) {
+                        room.discovered = true;
+                    }
+                });
+            }
+
+            // if insane or impossible remove the map 
+            if (difficulty === 'Insane' || difficulty === 'Impossible') {
+                document.getElementById('mini-map').style.display = 'none';
+            }
+
+            renderRoom();
+
+        }
+
+        renderStartScreen();
+      
     </script>
 </body>
 </html>
