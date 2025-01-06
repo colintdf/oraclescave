@@ -91,7 +91,7 @@
     
         .enemy {
             position: absolute;
-            top: 50%;
+            bottom: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 160px;
@@ -108,9 +108,18 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid orange;
+            width: 90px;
+            height: 90px;
+          
+        }
+        .dungeonExit {
+            position: absolute;
+            top: 20%;
+            left: 20%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+          
         }
 
         .health {
@@ -423,7 +432,7 @@
                 activationArtifact: "Oracle's Potion",
             },
             {
-                name: "Locked Door",
+                name: "Locked Gate",
                 activationArtifact: "Oracle's Key",
             },
             {
@@ -1848,13 +1857,14 @@
             // if current room has a dungeon exit then render it
             if (currentRoom.dungeonExits.length > 0) {
                 const exitImg = document.createElement('img');
-                exitImg.src = `images/dungeon_exit.png`;
-                exitImg.className = 'artifact';
-                exitImg.alt = 'Dungeon Exit';
+                exitImg.src = `images/` + currentRoom.dungeonExits[0].name.toLowerCase().replaceAll(' ', '_').replaceAll('\'', '') + `.png`;
+                //alert(exitImg.src);
+                exitImg.className = 'dungeonExit';
+                exitImg.alt = currentRoom.dungeonExits[0].name;
 
                 // Position the exit in the room
                 exitImg.style.left = '20%';  // Adjust this value to place the exit
-                exitImg.style.top = '20%';   // Center vertically
+                exitImg.style.top = '25%';   // Center vertically
                 gameDiv.appendChild(exitImg);
             }
         }
