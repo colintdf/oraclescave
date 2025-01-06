@@ -118,9 +118,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid red;
+            width: 50px;
+            height: 50px;
         }
 
         .shield {
@@ -128,9 +127,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid blue;
+            width: 50px;
+            height: 50px;
         }
     
         .food {
@@ -138,9 +136,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid green;
+            width: 50px;
+            height: 50px;
         }
 
         .otherItem {
@@ -148,9 +145,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid silver;
+            width: 50px;
+            height: 50px;
         }
 
         .weapon {
@@ -158,9 +154,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border:2px solid gold;
+            width: 50px;
+            height: 50px;
         }
 
         #mini-map {
@@ -469,7 +464,6 @@
         const SHIELD_ITEMS = [
             { name: "Wooden Shield", strength: 20, uses: 10 },
             { name: "Iron Shield", strength: 40, uses: 20 },
-            { name: "Steel Shield", strength: 60, uses: 25 },
             { name: "Golden Shield", strength: 80, uses: 30 },
             { name: "Diamond Shield", strength: 100, uses: 10000 }
         ];
@@ -481,7 +475,6 @@
         const WEAPON_ITEMS = [
             { name: "Wooden Sword", strength: 20, uses: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.5) }, // Increased maxCount
             { name: "Iron Sword", strength: 40, uses: 20, maxCount: Math.floor(TOTAL_SCREENS * 0.25) },
-            { name: "Steel Sword", strength: 60, uses: 25, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
             { name: "Golden Sword", strength: 80, uses: 30, maxCount: Math.floor(TOTAL_SCREENS * 0.15) },
             { name: "Diamond Sword", strength: 100, uses: 10000, maxCount: Math.floor(TOTAL_SCREENS * 0.1) },
             { name: "Battle Axe", strength: 50, uses: 15, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
@@ -489,7 +482,6 @@
             { name: "Magic Staff", strength: 90, uses: 10, maxCount: Math.floor(TOTAL_SCREENS * 0.1) },
             { name: "Crossbow", strength: 60, uses: 20, maxCount: Math.floor(TOTAL_SCREENS * 0.2) },
             { name: "Throwing Knives", strength: 30, uses: 5, maxCount: Math.floor(TOTAL_SCREENS * 0.25) },
-            { name: "Asterion's Wrath", strength: 1000, uses: 1, maxCount: Math.floor(TOTAL_SCREENS * 0.01) } // Extremely powerful, one-time use
         ];
 
         let ARTIFACTS = ["Sword of Power", "Shield of Ages", "All Seeing Eye", "Amulet of Souls"];
