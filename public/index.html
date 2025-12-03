@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Oracle's Dungeon</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Metamorphous&display=swap" rel="stylesheet">
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="app/css/styles.css">
+</head>
+
+<body>
+    <h1>The Oracle's Dungeon</h1>
+
+    <div id="status-panel"></div>
+
+    <div id="game"></div>
+
+    <div id="mini-map-container">
+        <div id="description-panel">
+            <h2>Cave Description</h2>
+            <p id="description">An unknown cave...</p>
+        </div>
+
+        <div id="mini-map"></div>
+
+        <div id="inventory-panel">
+            <h2>Inventory</h2>
+            <p id="inventory">You are carrying nothing.</p>
+        </div>
+    </div>
+
+    <div id="info">Use Arrow Keys to Move</div>
+
+    <!-- JS modules in correct order -->
+    <script src="app/js/state.js"></script>
+    <script src="app/js/descriptions.js"></script>
+    <script src="app/js/generator.js"></script>
+    <script src="app/js/player.js"></script>
+    <script src="app/js/render.js"></script>
+    <script src="app/js/input.js"></script>
+
+    <script>
+        preloadSpriteSheets(() => {
+            renderStartScreen();
+        });
+    </script>
+</body>
+</html>
