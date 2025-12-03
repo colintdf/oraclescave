@@ -50,7 +50,14 @@ function renderRoom() {
     const gameDiv = document.getElementById('game');
     const descriptionDiv = document.getElementById('description');
 
-    gameDiv.innerHTML = '';
+    // =============================================
+    // FIX: Do NOT wipe the player sprite on redraw
+    // =============================================
+    Array.from(gameDiv.children).forEach(child => {
+        if (child.id !== 'player-sprite') {
+            child.remove();
+        }
+    });
 
     const room = dungeon[getIndex(currentX, currentY)];
 
@@ -73,20 +80,21 @@ function renderRoom() {
     if (room.dungeonExits.length > 0) renderDungeonExit(room, gameDiv);
 
     // =============================================
-    // ADDITION: Procedural description functionality
+    // Procedural description system
     // =============================================
     if (!room.descriptionFlavor) initRoomDescription(room);
     const flavour = buildDynamicRoomDescription(room);
     descriptionDiv.innerHTML = flavour + "<br><br>" + buildRoomDescription(room);
-    // =============================================
 
+    // Status + Inventory + Map
     renderPlayerStatus();
     renderInventory();
     renderMiniMap();
 
-    // Render player sprite last so it sits above everything
+    // =============================================
+    // Render player sprite LAST so it sits on top
+    // =============================================
     renderPlayerSprite(gameDiv);
-
 
     // fallback images
     document.querySelectorAll('img').forEach(img => {

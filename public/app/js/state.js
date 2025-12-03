@@ -19,9 +19,9 @@ const DIFFICULTY_MULTIPLIERS = {
         'health': 2,
         'strength': 2,
         'enemyMultipliers': {
-            'Goblin': 5,
-            'Troll': 4,
-            'Orc': 3,
+            'Goblin': 1,
+            'Troll': 1,
+            'Orc': 1,
             'Cyclops': 1,
             'Wraith': 0.5,
             'Minotaur': 0.25,
