@@ -60,6 +60,7 @@ function renderRoom() {
     });
 
     const room = dungeon[getIndex(currentX, currentY)];
+    room.discovered = true;
 
     if (!room.appearance) generateRoomAppearance(room);
 
@@ -228,28 +229,64 @@ function renderDungeonExit(room, gameDiv) {
     gameDiv.appendChild(img);
 }
 
-
-// =============================
-// MINI MAP
-// =============================
 function renderMiniMap() {
     const map = document.getElementById('mini-map');
+
+    // Difficulty-level behaviour
+    if (player.difficulty === 'Extreme' || player.difficulty === 'Impossible') {
+        map.style.display = 'none';
+        return;
+    } else {
+        map.style.display = 'grid';
+    }
+
     map.innerHTML = '';
 
     dungeon.forEach((room, idx) => {
         const div = document.createElement('div');
         div.className = 'mini-room';
 
-        if (room.discovered) div.classList.add('discovered');
-        if (room.isBoss) div.classList.add(room.enemy === 'Oracle' ? 'oracleRoom' : 'bossRoom');
-        if (room.dungeonExits.length > 0) div.classList.add('exitRoom');
-        if (idx === getIndex(currentX, currentY)) div.classList.add('current');
+        // EASY: entire map is visible
+        if (player.difficulty === 'Easy') {
+            room.discovered = true;
+        }
 
-        room.exits.forEach(dir => {
-            const e = document.createElement('div');
-            e.className = `mini-exit ${dir.toLowerCase()}`;
-            div.appendChild(e);
-        });
+        // MEDIUM: only bosses + exits start revealed
+        if (player.difficulty === 'Medium') {
+            if (room.isBoss || room.dungeonExits.length > 0) {
+                room.discovered = true;
+            }
+        }
+
+        // apply colours only if discovered
+        if (room.discovered) {
+            div.classList.add('discovered');
+
+            if (room.isBoss) {
+                div.classList.add(room.enemy === 'Oracle' ? 'oracleRoom' : 'bossRoom');
+            }
+
+            if (room.dungeonExits.length > 0) {
+                div.classList.add('exitRoom');
+            }
+        } else {
+            // undiscovered should be black, like the old version
+            div.style.backgroundColor = 'black';
+        }
+
+        // current room highlight
+        if (idx === getIndex(currentX, currentY)) {
+            div.classList.add('current');
+        }
+
+        // exits (only drawn if the room is visible)
+        if (room.discovered) {
+            room.exits.forEach(dir => {
+                const e = document.createElement('div');
+                e.className = `mini-exit ${dir.toLowerCase()}`;
+                div.appendChild(e);
+            });
+        }
 
         map.appendChild(div);
     });

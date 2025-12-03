@@ -91,7 +91,7 @@ const DIFFICULTY_MULTIPLIERS = {
 // ENEMY STATUSES
 // ===============================
 const ENEMY_STATUSES = [
-    "sleeping", "uninterested", "angry", "hungry", "curious"
+    "sleeping", "uninterested", "furious", "hungry", "curious"
 ];
 
 // ===============================
@@ -139,7 +139,7 @@ const ENEMY_TYPES = [
 // BOSS TYPES
 // ===============================
 const BOSS_TYPES = [
-    { name: "Oracle",            health: 10000, strength: 10000, status: "mystical", score: 1000 },
+    { name: "Oracle",            health: 10000, strength: 300,  status: "mystical", score: 1000 },
     { name: "Ancient Dragon",    health: 1000,  strength: 100,   status: "angry",    score: 1000 },
     { name: "Necromancer King",  health: 1000,  strength: 100,   status: "angry",    score: 1000 },
     { name: "Infernal Overlord", health: 1000,  strength: 100,   status: "angry",    score: 1000 },

@@ -44,6 +44,7 @@ const DIR_TO_ROW = {
 // =============================
 
 function dbgState(label) {
+    return false;
     console.log(
         `%c[DBG] ${label} | phase=${playerSpriteState.phase} idleAnimating=${playerSpriteState.idleAnimating} anim=${playerIsAnimating} dir=${playerSpriteState.dir}`,
         "color:#0af"
@@ -51,6 +52,7 @@ function dbgState(label) {
 }
 
 function dbgIdleCheck() {
+    return false;
     const now = performance.now();
     const diff = nextIdleAt - now;
     console.log(
@@ -101,7 +103,7 @@ function getRoomDimensions() {
 function isEnemyPresent() {
     const room = dungeon[getIndex(currentX, currentY)];
     const present = !!room.enemy && room.enemyHealth > 0;
-    console.log("[DBG] Enemy present?", present);
+   // console.log("[DBG] Enemy present?", present);
     return present;
 }
 
@@ -134,7 +136,7 @@ function updateSpriteDirectionFromVector(dx, dy) {
 // =============================
 
 function runIdleAnimationOnce() {
-    console.log("%c[IDLE] Triggered!", "color:yellow");
+   // console.log("%c[IDLE] Triggered!", "color:yellow");
     dbgState("Idle animation starting");
 
     const sprite = document.getElementById("player-sprite");
@@ -187,7 +189,7 @@ function renderPlayerSprite(gameDiv) {
 
     if (!playerSpriteState.initialised) {
         playerSpriteState.x = w * 0.5;
-        playerSpriteState.y = h * 0.6;
+        playerSpriteState.y = h * 0.5;
         playerSpriteState.targetX = playerSpriteState.x;
         playerSpriteState.targetY = playerSpriteState.y;
         playerSpriteState.initialised = true;
@@ -286,9 +288,9 @@ function getExitPositionForDirection(dir) {
     switch (dir) {
         case "UP": return { x: w * 0.5, y: WALL_THICKNESS_PERC * h + margin };
         case "DOWN": return { x: w * 0.5, y: h - WALL_THICKNESS_PERC * h - margin };
-        case "LEFT": return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.6 };
-        case "RIGHT": return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.6 };
-        default: return { x: w * 0.5, y: h * 0.6 };
+        case "LEFT": return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.5 };
+        case "RIGHT": return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.5 };
+        default: return { x: w * 0.5, y: h * 0.5 };
     }
 }
 
@@ -299,9 +301,9 @@ function getEntryPositionForDirection(dir) {
     switch (dir) {
         case "UP": return { x: w * 0.5, y: h - WALL_THICKNESS_PERC * h - margin };
         case "DOWN": return { x: w * 0.5, y: WALL_THICKNESS_PERC * h + margin };
-        case "LEFT": return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.6 };
-        case "RIGHT": return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.6 };
-        default: return { x: w * 0.5, y: h * 0.6 };
+        case "LEFT": return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.5 };
+        case "RIGHT": return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.5 };
+        default: return { x: w * 0.5, y: h * 0.5 };
     }
 }
 
@@ -386,7 +388,7 @@ function animatePlayerSprite(timestamp) {
 
             const dims = getRoomDimensions();
             playerSpriteState.targetX = dims.w * 0.5;
-            playerSpriteState.targetY = dims.h * 0.6;
+            playerSpriteState.targetY = dims.h * 0.5;
 
             playerSpriteState.animStart = performance.now();
             playerSpriteState.lastTimestamp = null;
