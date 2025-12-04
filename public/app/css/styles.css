@@ -1,7 +1,7 @@
 body {
     font-family: "Metamorphous", serif;
     font-weight: 400;
-    font-style: normal;            
+    font-style: normal;
     text-align: center;
     background-color: #111;
     color: white;
@@ -15,10 +15,14 @@ body {
     width: 100%;
     height: 100%;
 }
+.enemy, .boss, #player-sprite {
+    image-rendering: pixelated;
+    object-fit: contain;
+}
 
 .wall-chunk {
     position: absolute;
-    background-color: #888; 
+    background-color: #888;
     border-radius: 5px;
 }
 
@@ -76,11 +80,12 @@ h1 {
     height: 100%;
 }
 
+/* ------------------------------------------------------------
+   FIX: REMOVE transform-centering that breaks z-index system
+------------------------------------------------------------ */
+
 .enemy {
     position: absolute;
-    bottom: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     width: 160px;
     height: 160px;
 }
@@ -90,68 +95,26 @@ h1 {
     height: 200px;
 }
 
-.artifact {
+/* REMOVE transform-centering */
+.artifact,
+.dungeonExit,
+.health,
+.shield,
+.food,
+.otherItem,
+.weapon {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90px;
-    height: 90px;
+    width: 50px;
+    height: 50px;
 }
 
+/* dungeonExit needs a larger size but should NOT be centered */
 .dungeonExit {
-    position: absolute;
-    top: 20%;
-    left: 20%;
-    transform: translate(-50%, -50%);
     width: 200px;
     height: 200px;
 }
 
-.health {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 50px;
-    height: 50px;
-}
-
-.shield {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 50px;
-    height: 50px;
-}
-
-.food {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 50px;
-    height: 50px;
-}
-
-.otherItem {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 50px;
-    height: 50px;
-}
-
-.weapon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 50px;
-    height: 50px;
-}
+/* ------------------------------------------------------------ */
 
 #mini-map {
     display: grid;
@@ -283,7 +246,7 @@ h1 {
     padding: 0;
     margin: 0;
     box-sizing: border-box;
-    position: relative; /* CRITICAL */
+    position: relative;
 }
 
 .health-fill {
@@ -292,13 +255,10 @@ h1 {
     margin: 0;
     padding: 0;
     display: block;
-    position: absolute;   /* CRITICAL */
-    left: 0;              /* forces perfect alignment */
+    position: absolute;
+    left: 0;
     top: 0;
 }
-
-
-
 
 .discovered.bossRoom {
     background: #300 !important;
@@ -327,4 +287,50 @@ h1 {
     #mini-map {
         margin: 10px auto;
     }
+}
+
+.sprite-wrapper {
+    position: absolute;
+    display: inline-block;
+}
+.sprite-wrapper img {
+    display: block;
+}
+
+
+.weapon,
+.food,
+.health,
+.shield,
+.otherItem,
+.dungeonExit,
+.enemy,
+#player-sprite {
+    display: block;        /* Ensures outline wraps tightly */
+    box-sizing: border-box;
+    image-rendering: pixelated;
+}
+
+.sprite-wrapper {
+    position: absolute;
+    display: inline-block;
+}
+
+.sprite-wrapper img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.depth-debug {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    padding: 2px 4px;
+    font-size: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 99999;
 }

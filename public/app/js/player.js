@@ -182,6 +182,13 @@ function runIdleAnimationOnce() {
 // RENDER
 // =============================
 
+function getSpriteFeetOffset(el) {
+    if (el.id === 'player-sprite') {
+        return 30; // ADJUST UNTIL EXACTLY MATCHING FEET
+    }
+    return 0;
+}
+
 function renderPlayerSprite(gameDiv) {
     if (!gameDiv) return;
 
@@ -204,7 +211,6 @@ function renderPlayerSprite(gameDiv) {
         sprite.style.width = DISPLAY_W + "px";
         sprite.style.height = DISPLAY_H + "px";
         sprite.style.transform = "translate(-50%, -50%)";
-        sprite.style.zIndex = "9999";
         sprite.style.backgroundRepeat = "no-repeat";
         sprite.dataset.sheet = "";
         gameDiv.appendChild(sprite);
@@ -249,6 +255,8 @@ function renderPlayerSprite(gameDiv) {
 
     sprite.style.left = playerSpriteState.x + "px";
     sprite.style.top = playerSpriteState.y + "px";
+    // Depth sorting: higher Y = in front, lower Y = behind
+    applyDepthSorting(sprite);
 
     const now = performance.now();
     const t = (now - playerSpriteState.animStart) / 1000;

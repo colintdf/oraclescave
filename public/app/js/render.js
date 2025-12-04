@@ -42,7 +42,37 @@ function preloadSpriteSheets(callback) {
     spriteSheets.idle = idleImg;
 }
 
+function enableAutoDepthSorting() {
+    const game = document.getElementById('game');
 
+    // 1. MutationObserver for style changes
+    const styleObserver = new MutationObserver(mutations => {
+        for (const m of mutations) {
+            if (m.type === "attributes" && m.attributeName === "style") {
+                const el = m.target;
+                if (el.classList.contains('sprite-wrapper')) {
+                    requestAnimationFrame(() => applyDepthSorting(el));
+                }
+            }
+        }
+    });
+
+    // 2. ResizeObserver for size changes
+    const resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            const el = entry.target;
+            if (el.classList.contains('sprite-wrapper')) {
+                requestAnimationFrame(() => applyDepthSorting(el));
+            }
+        }
+    });
+
+    // Attach observers to all wrappers
+    game.querySelectorAll('.sprite-wrapper').forEach(el => {
+        styleObserver.observe(el, { attributes: true });
+        resizeObserver.observe(el);
+    });
+}
 // =============================
 // MAIN RENDER FUNCTION
 // =============================
@@ -64,10 +94,15 @@ function renderRoom() {
 
     if (!room.appearance) generateRoomAppearance(room);
 
+
+
     // Render walls
     ['UP', 'DOWN', 'LEFT', 'RIGHT'].forEach(dir => {
         renderWallFromAppearance(room, dir, gameDiv);
     });
+
+    renderFloorTexture(gameDiv, room.appearance.floorPatches); // ADD THIS
+
 
     // Enemy
     if (room.enemy) renderEnemy(room, gameDiv);
@@ -109,6 +144,15 @@ function renderRoom() {
             fill.style.width = pct + '%';
         }
     }
+
+    gameDiv.querySelectorAll('.sprite-wrapper').forEach(el => {
+        if (el.classList.contains('sprite-wrapper')) {
+            applyDepthSorting(el);
+        }
+    });
+    setTimeout(enableAutoDepthSorting, 50);
+
+
 }
 
 
@@ -128,6 +172,7 @@ function renderWallFromAppearance(room, dir, gameDiv) {
     canvas.style.position = 'absolute';
     canvas.style.left = '0';
     canvas.style.top = '0';
+    canvas.style.zIndex = '1';
 
     const ctx = canvas.getContext('2d');
     const base = room.appearance.wallPalette;
@@ -159,29 +204,45 @@ function renderWallFromAppearance(room, dir, gameDiv) {
     gameDiv.appendChild(canvas);
 }
 
-
-// =============================
-// ENEMY RENDER
-// =============================
 function renderEnemy(room, gameDiv) {
+    // Create the wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sprite-wrapper enemy';
+    wrapper.style.position = 'absolute';
+    wrapper.style.pointerEvents = 'none'; // avoids hover artifacts
+
+    // Spawn position (persistent)
+    if (!room.enemyPos) {
+        room.enemyPos = {
+            x: 20 + Math.random() * 60, // 20–80%
+            y: 20 + Math.random() * 60
+        };
+    }
+
+    wrapper.style.left = room.enemyPos.x + '%';
+    wrapper.style.top = room.enemyPos.y + '%';
+
+    // Enemy image
     const img = document.createElement('img');
     img.src = `app/images/${room.enemy.toLowerCase().replaceAll(' ', '_')}.png`;
-    img.className = 'enemy';
-    if (room.isBoss) img.classList.add('boss');
+    img.style.width = room.isBoss ? '200px' : '160px';
+    img.style.height = room.isBoss ? '200px' : '160px';
 
-    img.style.left = '12%';
-    img.style.top = '50%';
+    wrapper.appendChild(img);
+    gameDiv.appendChild(wrapper);
 
+    // ================================
+    // HEALTH BAR (inline version)
+    // ================================
     const hb = document.createElement('div');
     hb.id = 'enemyHealthBar';
     hb.style.position = 'absolute';
-    hb.style.left = '9%';
-    hb.style.top = '37%';
     hb.style.width = '80px';
     hb.style.height = '5px';
     hb.style.border = '1px solid white';
     hb.style.background = 'red';
     hb.style.overflow = 'hidden';
+    hb.style.pointerEvents = 'none';
 
     const fill = document.createElement('div');
     fill.id = 'enemyHealthFill';
@@ -192,10 +253,28 @@ function renderEnemy(room, gameDiv) {
     fill.style.width = pct + '%';
 
     hb.appendChild(fill);
-    gameDiv.appendChild(img);
     gameDiv.appendChild(hb);
+
+    // =====================================
+    // Delay required so wrapper has size
+    // =====================================
+    setTimeout(() => {
+        positionEnemyHealthBar(wrapper, hb);
+        applyDepthSorting(wrapper);
+    }, 20);
 }
 
+
+function positionEnemyHealthBar(wrapper, bar) {
+    const rect = wrapper.getBoundingClientRect();
+    const gameRect = document.getElementById('game').getBoundingClientRect();
+
+    const x = rect.left - gameRect.left;
+    const y = rect.top - gameRect.top;
+
+    bar.style.left = (x + rect.width / 2 - 40) + 'px';
+    bar.style.top = (y - 12) + 'px';
+}
 
 // =============================
 // ITEM RENDER HELPERS
@@ -206,28 +285,50 @@ function renderOtherItem(room, gameDiv) { renderSimpleItem(room.otherItem, 'othe
 function renderHealth(room, gameDiv) { renderSimpleItem(room.health, 'health', room, gameDiv, '60%'); }
 function renderShield(room, gameDiv) { renderSimpleItem(room.shield, 'shield', room, gameDiv, '40%'); }
 
-function renderSimpleItem(name, cls, room, gameDiv, left) {
+function renderSimpleItem(name, cls, room, gameDiv) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sprite-wrapper ' + cls;
+    wrapper.style.position = 'absolute';
+
+    const pos = room.appearance.objectPositions[cls];
+    wrapper.style.left = (pos.x * 100) + '%';
+    wrapper.style.top = (pos.y * 100) + '%';
+
     const img = document.createElement('img');
     img.src = `app/images/${name.toLowerCase().replaceAll(' ', '_')}.png`;
-    img.className = cls;
-    img.style.left = left;
-    img.style.top = '50%';
-    gameDiv.appendChild(img);
+    img.style.width = '50px';
+    img.style.height = '50px';
+
+    wrapper.appendChild(img);
+    gameDiv.appendChild(wrapper);
+
+    setTimeout(() => applyDepthSorting(wrapper), 0);
 }
 
 
-// =============================
+
 // DUNGEON EXIT RENDER
 // =============================
 function renderDungeonExit(room, gameDiv) {
     const exit = room.dungeonExits[0];
+
+    const wrap = document.createElement('div');
+    wrap.className = 'sprite-wrapper exit-wrapper';
+    wrap.style.position = 'absolute';
+
+    const pos = room.appearance.objectPositions.exit;
+    wrap.style.left = (pos.x * 100) + '%';
+    wrap.style.top = (pos.y * 100) + '%';
+
     const img = document.createElement('img');
-    img.src = `app/images/${exit.name.toLowerCase().replaceAll(' ', '_').replaceAll('\'','')}.png`;
+    img.src = `app/images/${exit.name.toLowerCase().replaceAll(' ', '_').replaceAll("'", "")}.png`;
     img.className = 'dungeonExit';
-    img.style.left = '20%';
-    img.style.top = '25%';
-    gameDiv.appendChild(img);
+    img.style.display = 'block';
+
+    wrap.appendChild(img);
+    gameDiv.appendChild(wrap);
 }
+
 
 function renderMiniMap() {
     const map = document.getElementById('mini-map');
@@ -452,7 +553,65 @@ function buildRoomDescription(room) {
 
     return parts.join('<br>');
 }
+function generateObjectPositions(room) {
+    const positions = {};
 
+    // Spawnable area inside walls
+    const minX = 0.12;
+    const maxX = 0.88;
+    const minY = 0.18;
+    const maxY = 0.82;
+
+    const placed = []; // track placed objects to avoid overlap
+
+    const ITEM_RADIUS = 60;   // ~50–90px items
+    const ENEMY_RADIUS = 90;  // 160–200px bosses
+
+    function place(type) {
+        const radius = type === "enemy" ? ENEMY_RADIUS : ITEM_RADIUS;
+
+        for (let tries = 0; tries < 80; tries++) {
+            const x = minX + Math.random() * (maxX - minX);
+            const y = minY + Math.random() * (maxY - minY);  // <-- FIXED
+
+            let ok = true;
+
+            for (const obj of placed) {
+                const dx = (x - obj.x) * 1280;
+                const dy = (y - obj.y) * 720;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < obj.radius + radius) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (ok) {
+                placed.push({ x, y, radius });
+                return { x, y };
+            }
+        }
+
+        // Fallback if we fail to place without overlap
+        return { x: 0.5, y: 0.5 };
+    }
+
+    // Enemy
+    if (room.enemy) positions.enemy = place("enemy");
+
+    // Items
+    ['weapon', 'food', 'health', 'shield', 'otherItem'].forEach(key => {
+        if (room[key]) positions[key] = place("item");
+    });
+
+    // Dungeon exit
+    if (room.dungeonExits.length > 0) {
+        positions.exit = place("item");
+    }
+
+    return positions;
+}
 
 
 // =============================
@@ -470,6 +629,32 @@ function generateRoomAppearance(room) {
         LEFT: generateWallSegmentsForSide('LEFT', room.exits.includes('LEFT')),
         RIGHT: generateWallSegmentsForSide('RIGHT', room.exits.includes('RIGHT'))
     };
+
+    if (!room.appearance.floorPatches) {
+        room.appearance.floorPatches = generateFloorPatches();
+    }
+    if (!room.appearance.objectPositions) {
+        room.appearance.objectPositions = generateObjectPositions(room);
+    }
+}
+
+function generateFloorPatches() {
+    const patches = [];
+    const count = 120; // more patches = more texture
+
+    for (let i = 0; i < count; i++) {
+        patches.push({
+            x: Math.random(),   // 0..1 (percentage)
+            y: Math.random(),
+            w: 20 + Math.random() * 100,
+            h: 20 + Math.random() * 80,
+            rot: Math.random() * Math.PI * 2,
+            opacity: 0.04 + Math.random() * 0.08,
+            shade: 15 + Math.floor(Math.random() * 30) // dark grey variety
+        });
+    }
+
+    return patches;
 }
 
 // =============================
@@ -565,4 +750,128 @@ function generateWallSegmentsForSide(dir, hasExit) {
     if (dir === 'RIGHT') addVertical(false);
 
     return segments.filter(Boolean);
+}
+function applyDepthSorting(el) {
+    if (!el) return;
+
+    // Wait for images to load so offsetHeight is valid
+    if (el.tagName === "IMG" && !el.complete) {
+        el.onload = () => applyDepthSorting(el);
+        return;
+    }
+
+    const game = document.getElementById('game');
+    const gameHeight = game.clientHeight;
+
+    // -------------------------------------------
+    // 1. RESOLVE TOP POSITION IN PIXELS
+    // -------------------------------------------
+    let topPx = 0;
+    if (el.style.top.includes('%')) {
+        topPx = (parseFloat(el.style.top) / 100) * gameHeight;
+    } else {
+        topPx = parseFloat(el.style.top) || 0;
+    }
+
+    // -------------------------------------------
+    // 2. TRUE ELEMENT HEIGHT
+    // -------------------------------------------
+    const heightPx = el.offsetHeight || 0;
+
+    // -------------------------------------------
+    // 3. FEET OFFSET (player only)
+    // -------------------------------------------
+    let feetOffset = 0;
+
+    if (el.id === 'player-sprite') {
+        // Your sprite frame is ~160px tall inside a 640px sheet row
+        // Adjust until feet align correctly
+        feetOffset = getSpriteFeetOffset(el);
+    }
+
+    // -------------------------------------------
+    // 4. TRUE FEET POSITION
+    // -------------------------------------------
+    const bottom = topPx + heightPx - feetOffset;
+
+    // -------------------------------------------
+    // 5. APPLY DEPTH Z-INDEX
+    // -------------------------------------------
+    el.style.zIndex = 1000 + Math.floor(bottom);
+
+    // -------------------------------------------
+    // 6. DEBUG LEGEND
+    // -------------------------------------------
+    let dbg = el.querySelector('.depth-debug');
+    if (!dbg) {
+        dbg = document.createElement('div');
+        dbg.className = 'depth-debug';
+        dbg.style.position = 'absolute';
+        dbg.style.left = '0';
+        dbg.style.top = '100%';
+        dbg.style.fontSize = '10px';
+        dbg.style.color = 'white';
+        dbg.style.background = 'rgba(0,0,0,0.7)';
+        dbg.style.padding = '2px 4px';
+        dbg.style.pointerEvents = 'none';
+        dbg.style.whiteSpace = 'nowrap';
+        dbg.style.zIndex = 999999;
+        el.appendChild(dbg);
+    }
+    dbg.textContent = `bottom: ${Math.floor(bottom)} | z: ${el.style.zIndex}`;
+
+    // -------------------------------------------
+    // 7. DEBUG BORDER OUTLINE (100% working)
+    // -------------------------------------------
+  //  el.style.outline = '2px solid rgba(255,255,255,0.8)';
+}
+
+
+
+function renderFloorTexture(gameDiv, patches) {
+    const width = gameDiv.clientWidth || 1280;
+    const height = gameDiv.clientHeight || 720;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.position = 'absolute';
+    canvas.style.left = '0';
+    canvas.style.top = '0';
+    canvas.style.zIndex = '0';
+
+    const ctx = canvas.getContext('2d');
+
+    // Base
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw stored patches
+    patches.forEach(p => {
+        ctx.save();
+        ctx.translate(p.x * width, p.y * height);
+        ctx.rotate(p.rot);
+
+        ctx.fillStyle = `rgba(${p.shade}, ${p.shade}, ${p.shade}, ${p.opacity})`;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.w, p.h, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    });
+
+    gameDiv.appendChild(canvas);
+}
+
+function positionEnemyHealthBar(enemyImg, bar) {
+    const rect = enemyImg.getBoundingClientRect();
+    const gameRect = document.getElementById('game').getBoundingClientRect();
+
+    // Compute top-left position relative to game container
+    const x = rect.left - gameRect.left;
+    const y = rect.top - gameRect.top;
+
+    // Health bar goes slightly above the enemy sprite
+    bar.style.left = (x + rect.width / 2 - 40) + 'px';  // 80px bar width
+    bar.style.top = (y - 12) + 'px';                    // slight offset upward
 }
