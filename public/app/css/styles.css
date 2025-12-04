@@ -308,7 +308,6 @@ h1 {
 #player-sprite {
     display: block;        /* Ensures outline wraps tightly */
     box-sizing: border-box;
-    image-rendering: pixelated;
 }
 
 .sprite-wrapper {
