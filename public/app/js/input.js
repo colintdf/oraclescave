@@ -29,7 +29,7 @@ function movePlayer(direction) {
 
             currentRoom.enemyStatus = newStatus;
 
-            if (newStatus === 'angry' || newStatus === 'hungry') {
+            if (newStatus === 'furious' || newStatus === 'hungry') {
                 currentRoom.storedExits = currentRoom.exits;
                 currentRoom.exits = [];
             }
@@ -39,9 +39,9 @@ function movePlayer(direction) {
         }
     }
 
-    // BLOCKING RULE – angry / hungry enemies block exits
+    // BLOCKING RULE – furious / hungry enemies block exits
     if (currentRoom.enemy &&
-        (currentRoom.enemyStatus === 'angry' || currentRoom.enemyStatus === 'hungry')) {
+        (currentRoom.enemyStatus === 'furious' || currentRoom.enemyStatus === 'hungry')) {
 
         alert('The ' + currentRoom.enemy + ' is blocking the exits!');
         return;
@@ -74,7 +74,7 @@ function attackEnemy() {
 
     if (!currentRoom.enemy) return;
 
-    currentRoom.enemyStatus = 'angry';
+    currentRoom.enemyStatus = 'furious';
 
     let playerDamage = Math.floor(Math.random() * player.weaponstrength);
     playerDamage = Math.floor(playerDamage * DIFFICULTY_MULTIPLIERS[player.difficulty].strength);
@@ -82,7 +82,7 @@ function attackEnemy() {
     let enemyDamage = Math.floor(Math.random() * currentRoom.enemyStrength);
 
     if (currentRoom.enemyStatus === 'sleeping') enemyDamage = Math.floor(enemyDamage * 0.5);
-    if (currentRoom.enemyStatus === 'angry') enemyDamage = Math.floor(enemyDamage * 1.5);
+    if (currentRoom.enemyStatus === 'furious') enemyDamage = Math.floor(enemyDamage * 1.5);
 
     // SHIELD DAMAGE REDUCTION + INVENTORY SYNC FIX
     if (player.shieldstrength > 0) {
@@ -168,7 +168,7 @@ function attackEnemy() {
             player.inventory.artifacts.push({ name: currentRoom.artifact, quantity: 1 });
 
             dungeon.forEach(room => {
-                if (room.enemy) room.enemyStatus = 'angry';
+                if (room.enemy) room.enemyStatus = 'furious';
             });
 
             if (currentRoom.artifact === 'All Seeing Eye') {
@@ -447,11 +447,11 @@ window.addEventListener('keydown', (e) => {
         let selectedItem = items[itemIndex];
 
         // Enemy reacts BEFORE item pickup
-        if (currentRoom.enemy && currentRoom.enemyStatus !== 'angry' && currentRoom.enemyStatus !== 'sleeping') {
+        if (currentRoom.enemy && currentRoom.enemyStatus !== 'furious' && currentRoom.enemyStatus !== 'sleeping') {
             currentRoom.storedExits = currentRoom.exits;
             currentRoom.exits = [];
-            currentRoom.enemyStatus = 'angry';
-            alert(`The ${currentRoom.enemy} becomes angry and blocks the exits.`);
+            currentRoom.enemyStatus = 'furious';
+            alert(`The ${currentRoom.enemy} becomes furious and blocks the exits.`);
             renderRoom();
             return;
         }
@@ -466,7 +466,7 @@ window.addEventListener('keydown', (e) => {
 
                 currentRoom.enemyStatus = newStatus;
 
-                if (newStatus === 'angry' || newStatus === 'hungry') {
+                if (newStatus === 'furious' || newStatus === 'hungry') {
                     currentRoom.storedExits = currentRoom.exits;
                     currentRoom.exits = [];
                 }

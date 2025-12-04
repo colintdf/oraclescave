@@ -162,7 +162,7 @@ function placeEnemies() {
                             room.enemyStatus === 'uninterested' ||
                             room.enemyStatus === 'curious'
                         ) {
-                            room.enemyStatus = 'angry';
+                            room.enemyStatus = 'furious';
                         }
                     }
 

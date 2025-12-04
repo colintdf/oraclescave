@@ -140,10 +140,10 @@ const ENEMY_TYPES = [
 // ===============================
 const BOSS_TYPES = [
     { name: "Oracle",            health: 10000, strength: 300,  status: "mystical", score: 1000 },
-    { name: "Ancient Dragon",    health: 1000,  strength: 100,   status: "angry",    score: 1000 },
-    { name: "Necromancer King",  health: 1000,  strength: 100,   status: "angry",    score: 1000 },
-    { name: "Infernal Overlord", health: 1000,  strength: 100,   status: "angry",    score: 1000 },
-    { name: "Leviathan",         health: 1000,  strength: 100,   status: "angry",    score: 1000 }
+    { name: "Ancient Dragon",    health: 1000,  strength: 100,   status: "furious",    score: 1000 },
+    { name: "Necromancer King",  health: 1000,  strength: 100,   status: "furious",    score: 1000 },
+    { name: "Infernal Overlord", health: 1000,  strength: 100,   status: "furious",    score: 1000 },
+    { name: "Leviathan",         health: 1000,  strength: 100,   status: "furious",    score: 1000 }
 ];
 
 // ===============================
