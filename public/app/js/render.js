@@ -73,10 +73,35 @@ function enableAutoDepthSorting() {
         resizeObserver.observe(el);
     });
 }
+
+function calculateVictoryChance(player, room) {
+    if (!room.enemy) return 0;
+
+    const difficultyBoost = DIFFICULTY_MULTIPLIERS[player.difficulty].strength;
+
+    const playerAvg = (player.weaponstrength * difficultyBoost) / 2;
+    const enemyAvg = (room.enemyStrength) / 2;
+
+    const playerTTK = room.enemyHealth / playerAvg;
+    const enemyTTK = player.health / enemyAvg;
+
+    let chance = (enemyTTK / (playerTTK + enemyTTK)) * 100;
+
+    if (chance < 1) chance = 1;
+    if (chance > 99) chance = 99;
+
+    return Math.floor(chance);
+}
+
+
 // =============================
 // MAIN RENDER FUNCTION
 // =============================
+
+
 function renderRoom() {
+    clearPopups();
+
     const gameDiv = document.getElementById('game');
     const descriptionDiv = document.getElementById('description');
 
@@ -150,7 +175,9 @@ function renderRoom() {
             applyDepthSorting(el);
         }
     });
+ 
     setTimeout(enableAutoDepthSorting, 50);
+    positionPopupContainer();
 
 
 }
@@ -209,7 +236,7 @@ function renderEnemy(room, gameDiv) {
     const wrapper = document.createElement('div');
     wrapper.className = 'sprite-wrapper enemy';
     wrapper.style.position = 'absolute';
-    wrapper.style.pointerEvents = 'none'; // avoids hover artifacts
+   // wrapper.style.pointerEvents = 'none'; // avoids hover artifacts
 
     // Spawn position (persistent)
     if (!room.enemyPos) {
@@ -225,11 +252,47 @@ function renderEnemy(room, gameDiv) {
     // Enemy image
     const img = document.createElement('img');
     img.src = `app/images/${room.enemy.toLowerCase().replaceAll(' ', '_')}.png`;
-    img.style.width = room.isBoss ? '200px' : '160px';
-    img.style.height = room.isBoss ? '200px' : '160px';
+    img.style.width = room.isBoss ? '180px' : '100px';
+    img.style.height = room.isBoss ? '180px' : '100px';
 
+    // match wrapper size to image
+    wrapper.style.width = img.style.width;
+    wrapper.style.height = img.style.height;
+
+        // Enemy element
     wrapper.appendChild(img);
     gameDiv.appendChild(wrapper);
+
+    // ------- CLICK TO ATTACK -------
+    wrapper.style.cursor = "pointer";
+    wrapper.addEventListener("click", () => {
+        const tip = document.getElementById("exit-tooltip");
+        tip.style.opacity = 0;
+        tooltipLocked = false;
+
+        attackEnemy();
+    });
+
+    // ------- TOOLTIP ON HOVER -------
+    const tooltip = document.getElementById("exit-tooltip");
+
+    wrapper.addEventListener("mousemove", (e) => {
+        tooltipLocked = true;
+
+        const room = dungeon[getIndex(currentX, currentY)];
+        const chance = calculateVictoryChance(player, room);
+
+        tooltip.innerHTML = `ATTACK!<br /> <br/>${room.enemy} — Victory Chance: ${chance}%`;
+
+        tooltip.style.left = (e.clientX + 12) + "px";
+        tooltip.style.top = (e.clientY + 12) + "px";
+        tooltip.style.opacity = 1;
+    });
+
+    wrapper.addEventListener("mouseleave", () => {
+        tooltipLocked = false;
+        tooltip.style.opacity = 0;
+    });
 
     // ================================
     // HEALTH BAR (inline version)
@@ -237,7 +300,7 @@ function renderEnemy(room, gameDiv) {
     const hb = document.createElement('div');
     hb.id = 'enemyHealthBar';
     hb.style.position = 'absolute';
-    hb.style.width = '80px';
+    hb.style.width = '70px';
     hb.style.height = '5px';
     hb.style.border = '1px solid white';
     hb.style.background = 'red';
@@ -273,7 +336,7 @@ function positionEnemyHealthBar(wrapper, bar) {
     const y = rect.top - gameRect.top;
 
     bar.style.left = (x + rect.width / 2 - 40) + 'px';
-    bar.style.top = (y - 12) + 'px';
+    bar.style.top = (y - 30) + 'px';
 }
 
 // =============================
@@ -302,7 +365,37 @@ function renderSimpleItem(name, cls, room, gameDiv) {
     wrapper.appendChild(img);
     gameDiv.appendChild(wrapper);
 
+    wrapper.style.cursor = "pointer";
+
+    wrapper.addEventListener("click", () => {
+        // Hide tooltip when item is picked up
+        const tooltip = document.getElementById("exit-tooltip");
+        tooltip.style.opacity = 0;
+        tooltipLocked = false;
+
+        pickUpItem(name);
+    });
+
+
+    // TOOLTIP SUPPORT
+        const tooltip = document.getElementById("exit-tooltip");
+
+        wrapper.addEventListener("mousemove", (e) => {
+            tooltipLocked = true;
+            tooltip.textContent = 'Pick up ' + name;
+            tooltip.style.left = (e.clientX + 12) + "px";
+            tooltip.style.top = (e.clientY + 12) + "px";
+            tooltip.style.opacity = 1;
+        });
+
+        wrapper.addEventListener("mouseleave", () => {
+            tooltipLocked = false;
+            tooltip.style.opacity = 0;
+        });
+
+
     setTimeout(() => applyDepthSorting(wrapper), 0);
+
 }
 
 
@@ -323,11 +416,20 @@ function renderDungeonExit(room, gameDiv) {
     const img = document.createElement('img');
     img.src = `app/images/${exit.name.toLowerCase().replaceAll(' ', '_').replaceAll("'", "")}.png`;
     img.className = 'dungeonExit';
-    img.style.display = 'block';
+
+    // GIVE IT A SIZE (important!)
+    img.style.width = "120px";
+    img.style.height = "120px";
+    wrap.style.width = img.style.width;
+    wrap.style.height = img.style.height;
 
     wrap.appendChild(img);
     gameDiv.appendChild(wrap);
+
+    // depth-sort after image loads
+    img.onload = () => applyDepthSorting(wrap);
 }
+
 
 
 function renderMiniMap() {
@@ -447,23 +549,120 @@ function renderPlayerStatus() {
     statusDiv.appendChild(percentCompleteDiv);
 }
 
-
-// =============================
-// INVENTORY
-// =============================
 function renderInventory() {
     const div = document.getElementById('inventory');
     div.innerHTML = '';
 
     for (const cat in player.inventory) {
         if (player.inventory[cat].length > 0) {
+
             const c = document.createElement('div');
             c.textContent = `${cat}:`;
             div.appendChild(c);
 
             player.inventory[cat].forEach(item => {
+
                 const i = document.createElement('div');
                 i.textContent = `${item.name} x${item.quantity || 1}`;
+
+                // ==========================================================
+                // APPLY POINTER ONLY TO FOOD + HEALTH ITEMS
+                // ==========================================================
+                const isFood = FOOD_ITEMS.some(f => f.name === item.name);
+                const isHealth = HEALTH_ITEMS.some(h => h.name === item.name);
+
+                // Weapons, shields, artifacts, misc → NO POINTER
+                i.style.cursor = (isFood || isHealth) ? "pointer" : "default";
+
+
+                // ==========================================================
+                // CLICK TO USE (same validation rules as keyboard "U")
+                // ==========================================================
+                i.addEventListener("click", () => {
+
+                    // NON-usable items
+                    if (!isFood && !isHealth) return;
+
+                    // FULL HEALTH check (matches input.js)
+                    if (player.health === player['max-health']) {
+                        showPopup("Full health.");
+                        return;
+                    }
+
+                    // Identify item definition
+                    const foodDef = FOOD_ITEMS.find(f => f.name === item.name);
+                    const healthDef = HEALTH_ITEMS.find(h => h.name === item.name);
+
+                    // POTION special rules (identical to use-key logic)
+                    if (item.name === "potion") {
+
+                        // Remove 1 potion
+                        item.quantity -= 1;
+                        if (item.quantity <= 0) {
+                            player.inventory.food =
+                                player.inventory.food.filter(f => f.name !== "potion");
+                        }
+
+                        // Same random effects as USE command
+                        let effect = Math.floor(Math.random() * 3);
+
+                        if (effect === 0) {
+                            let loss = Math.floor(Math.random() * 50) * -1;
+                            player.health += loss;
+                            showPopup(`You drank the potion and lost ${loss} health.`);
+                            if (player.health <= 0) {
+                                showPopup("You died!", true);
+                                location.reload();
+                            }
+                        } else if (effect === 1) {
+                            player.health += Math.floor(Math.random() * 500);
+                            if (player.health > player['max-health']) {
+                                player.health = player['max-health'];
+                            }
+                            showPopup("You gained health.");
+                        } else {
+                            let randomRoom = Math.floor(Math.random() * TOTAL_SCREENS);
+                            currentX = randomRoom % GRID_SIZE;
+                            currentY = Math.floor(randomRoom / GRID_SIZE);
+                            showPopup("You passed out and woke up somewhere else.", true);
+                            renderRoom();
+                        }
+
+                        renderPlayerStatus();
+                        renderInventory();
+                        return;
+                    }
+
+
+                    // ======================================================
+                    // STANDARD FOOD / HEALTH ITEM CONSUMPTION
+                    // ======================================================
+                    const healAmount = (foodDef && foodDef.health) ||
+                                       (healthDef && healthDef.health) ||
+                                       0;
+
+                    player.health = Math.min(
+                        player['max-health'],
+                        player.health + healAmount
+                    );
+
+                    // Reduce quantity and remove if zero
+                    item.quantity -= 1;
+
+                    if (isFood) {
+                        player.inventory.food =
+                            player.inventory.food.filter(f => f.quantity > 0);
+                    }
+
+                    if (isHealth) {
+                        player.inventory.health =
+                            player.inventory.health.filter(h => h.quantity > 0);
+                    }
+
+                    renderPlayerStatus();
+                    renderInventory();
+                });
+
                 div.appendChild(i);
             });
         }
@@ -557,10 +756,10 @@ function generateObjectPositions(room) {
     const positions = {};
 
     // Spawnable area inside walls
-    const minX = 0.12;
-    const maxX = 0.88;
-    const minY = 0.18;
-    const maxY = 0.82;
+    const minX = 0.3;
+    const maxX = 0.7;
+    const minY = 0.3;
+    const maxY = 0.7;
 
     const placed = []; // track placed objects to avoid overlap
 
@@ -802,7 +1001,7 @@ function applyDepthSorting(el) {
     // -------------------------------------------
     // 6. DEBUG LEGEND
     // -------------------------------------------
-    let dbg = el.querySelector('.depth-debug');
+   /* let dbg = el.querySelector('.depth-debug');
     if (!dbg) {
         dbg = document.createElement('div');
         dbg.className = 'depth-debug';
@@ -818,7 +1017,7 @@ function applyDepthSorting(el) {
         dbg.style.zIndex = 999999;
         el.appendChild(dbg);
     }
-    dbg.textContent = `bottom: ${Math.floor(bottom)} | z: ${el.style.zIndex}`;
+    dbg.textContent = `bottom: ${Math.floor(bottom)} | z: ${el.style.zIndex}`;*/
 
     // -------------------------------------------
     // 7. DEBUG BORDER OUTLINE (100% working)
@@ -875,3 +1074,91 @@ function positionEnemyHealthBar(enemyImg, bar) {
     bar.style.left = (x + rect.width / 2 - 40) + 'px';  // 80px bar width
     bar.style.top = (y - 12) + 'px';                    // slight offset upward
 }
+function showPopup(message, requireOk = false) {
+    const container = document.getElementById("game-popup-container");
+    const overlay = document.getElementById("game-popup-overlay");
+
+    const box = document.createElement("div");
+    box.className = "game-popup";
+    box.style.cssText = `
+        background: rgba(0,0,0,0.85);
+        color:white;
+        padding:12px 16px;
+        border-radius:6px;
+        font-size:14px;
+        max-width:260px;
+        pointer-events:auto;
+    `;
+    box.innerHTML = `<div>${message}</div>`;
+
+    let timeout = null;
+
+    if (requireOk) {
+        // TURN ON OVERLAY
+        overlay.style.display = "block";
+        positionPopupContainer(); // makes overlay cover the game
+
+        const btn = document.createElement("button");
+        btn.textContent = "OK";
+        btn.onclick = () => {
+            overlay.style.display = "none"; // turn overlay off
+            box.remove();
+            positionPopupContainer();
+        };
+        box.appendChild(btn);
+    } else {
+        timeout = setTimeout(() => {
+            box.remove();
+            positionPopupContainer();
+        }, 5000);
+    }
+
+    container.appendChild(box);
+
+    positionPopupContainer();
+
+    return () => {
+        if (timeout) clearTimeout(timeout);
+        box.remove();
+        overlay.style.display = "none";
+        positionPopupContainer();
+    };
+}
+
+
+
+// Remove all popups on room change:
+function clearPopups() {
+    console.log("Clearing popups");
+   // const container = document.getElementById("game-popup-container");
+   // container.innerHTML = "";
+}
+
+function positionPopupContainer() {
+    const game = document.getElementById("game");
+    const popup = document.getElementById("game-popup-container");
+
+    if (!game || !popup) return;
+
+    const rect = game.getBoundingClientRect();
+
+    popup.style.position = "absolute";
+    popup.style.left = (rect.left + rect.width - popup.offsetWidth - 20) + "px";
+    popup.style.top  = (rect.top + rect.height - popup.offsetHeight - 20) + "px";
+}
+
+function stackPopups() {
+    const container = document.getElementById("game-popup-container");
+    const boxes = Array.from(container.children);
+
+    // Sort oldest at top, newest at bottom
+    let offset = 0;
+
+    boxes.forEach(box => {
+        box.style.marginTop = offset + "px";
+        offset -= (box.offsetHeight + 10); 
+    });
+}
+
+
+window.addEventListener("resize", positionPopupContainer);

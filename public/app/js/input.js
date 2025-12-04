@@ -21,7 +21,7 @@ function movePlayer(direction) {
     // Sleeping enemy wake-up check
     if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
         if (Math.random() < 0.5) {
-            alert('The ' + currentRoom.enemy + ' wakes up!');
+            showPopup('The ' + currentRoom.enemy + ' wakes up!', true);
             let newStatus;
             do {
                 newStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
@@ -43,7 +43,7 @@ function movePlayer(direction) {
     if (currentRoom.enemy &&
         (currentRoom.enemyStatus === 'furious' || currentRoom.enemyStatus === 'hungry')) {
 
-        alert('The ' + currentRoom.enemy + ' is blocking the exits!');
+        showPopup('The ' + currentRoom.enemy + ' is blocking the exits!', false);
         return;
     }
 
@@ -63,6 +63,231 @@ function movePlayer(direction) {
         }
     }
 }
+
+function pickUpItem(forcedItem = null) {
+
+
+    let currentRoom = dungeon[getIndex(currentX, currentY)];
+    let items = [];
+
+    if (currentRoom.weapon) items.push(currentRoom.weapon);
+    if (currentRoom.food) items.push(currentRoom.food);
+    if (currentRoom.health) items.push(currentRoom.health);
+    if (currentRoom.shield) items.push(currentRoom.shield);
+    if (currentRoom.otherItem) items.push(currentRoom.otherItem);
+
+    if (items.length === 0) return;
+
+    let selectedItem;
+
+    if (forcedItem) {
+        selectedItem = forcedItem;          // direct pickup (mouse click)
+    } else {
+        // original prompt-based selection
+        let itemIndex = prompt(
+            `Select an item to pick up:\n${items.map((i, idx) => `${idx + 1}. ${i}`).join('\n')}`
+        );
+        if (!itemIndex) return;
+        itemIndex = parseInt(itemIndex) - 1;
+        selectedItem = items[itemIndex];
+    }
+
+    // Enemy reacts BEFORE item pickup
+    if (currentRoom.enemy && currentRoom.enemyStatus !== 'furious' && currentRoom.enemyStatus !== 'sleeping') {
+        currentRoom.storedExits = currentRoom.exits;
+        currentRoom.exits = [];
+        currentRoom.enemyStatus = 'furious';
+        showPopup(`The ${currentRoom.enemy} becomes furious and blocks the exits.`, true);
+        renderRoom();
+        return;
+    }
+
+    if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
+        if (Math.random() < 0.8) {
+            showPopup('The ' + currentRoom.enemy + ' wakes up!', true);
+            let newStatus;
+            do {
+                newStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
+            } while (newStatus === 'sleeping');
+
+            currentRoom.enemyStatus = newStatus;
+
+            if (newStatus === 'furious' || newStatus === 'hungry') {
+                currentRoom.storedExits = currentRoom.exits;
+                currentRoom.exits = [];
+            }
+
+            renderRoom();
+            return;
+        }
+    }
+
+    const wasWeapon = (currentRoom.weapon === selectedItem);
+    const wasFood = (currentRoom.food === selectedItem);
+    const wasHealth = (currentRoom.health === selectedItem);
+    const wasShield = (currentRoom.shield === selectedItem);
+    const wasOther = (currentRoom.otherItem === selectedItem);
+
+    // ===========================
+    // WEAPON PICKUP
+    // ===========================
+    if (WEAPON_ITEMS.map(w => w.name).includes(selectedItem)) {
+
+        if (player.inventory.weapon.length > 0) {
+            let old = player.inventory.weapon[0];
+            player.oldWeapon = old.name;
+            player.oldWeaponStrength = old.strength;
+            player.oldWeaponUses = old.uses;
+            player.inventory.weapon = [];
+            player.weaponstrength = 10;
+            showPopup(`You drop your ${old.name} and pick up the ${selectedItem}.`);
+        }
+
+        player.weaponstrength = currentRoom.weaponStrength;
+        player.weaponuses = currentRoom.weaponUses;
+        player.weapon = selectedItem;
+
+        player.inventory.weapon.push({
+            name: selectedItem,
+            strength: currentRoom.weaponStrength,
+            uses: currentRoom.weaponUses
+        });
+    }
+
+    // ===========================
+    // SHIELD PICKUP
+    // ===========================
+    if (SHIELD_ITEMS.map(s => s.name).includes(selectedItem)) {
+
+        if (player.shield === selectedItem) {
+            currentRoom.shield = null;
+            currentRoom.shieldStrength = null;
+            currentRoom.shieldUses = null;
+            showPopup(`You already have the ${selectedItem}.`);
+           // renderRoom();
+            return;
+        }
+
+        if (player.inventory.shield.length > 0) {
+            let old = player.inventory.shield[0];
+            player.oldShield = old.name;
+            player.oldShieldStrength = old.strength;
+            player.oldShieldUses = old.uses;
+            player.inventory.shield = [];
+            showPopup(`You drop your ${old.name} and pick up the ${selectedItem}.`);
+        }
+
+        player.shieldstrength = currentRoom.shieldStrength;
+        player.shielduses = currentRoom.shieldUses;
+        player.shield = selectedItem;
+
+        player.inventory.shield.push({
+            name: selectedItem,
+            strength: player.shieldstrength,
+            uses: player.shielduses
+        });
+    }
+
+    // ===========================
+    // FOOD + HEALTH PICKUP
+    // ===========================
+    if (FOOD_ITEMS.map(f => f.name).includes(selectedItem) ||
+        HEALTH_ITEMS.map(h => h.name).includes(selectedItem)) {
+
+        let inv =
+            player.inventory.food.find(i => i.name === selectedItem) ||
+            player.inventory.health.find(i => i.name === selectedItem);
+
+        if (inv) {
+            inv.quantity += 1;
+        } else {
+            player.inventory.food.push({ name: selectedItem, quantity: 1 });
+        }
+
+      //  alert(`You pick up the ${selectedItem}.`);
+    }
+
+    // ===========================
+    // OTHER ITEMS (Map, etc)
+    // ===========================
+    if (OTHER_ITEMS.map(o => o.name).includes(selectedItem)) {
+
+        if (selectedItem === 'Map') {
+            let roomsRevealed = Math.floor(Math.random() * 10) + 1;
+            let adj = [];
+
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue;
+                    let nx = currentX + dx;
+                    let ny = currentY + dy;
+                    if (isInBounds(nx, ny)) adj.push(getIndex(nx, ny));
+                }
+            }
+
+            let revealList = [];
+            while (roomsRevealed-- > 0 && adj.length > 0) {
+                revealList.push(adj.splice(Math.floor(Math.random() * adj.length), 1)[0]);
+            }
+
+            revealList.forEach(i => dungeon[i].discovered = true);
+            showPopup('The map reveals some of the surrounding caves.');
+            renderMiniMap();
+        }
+    }
+
+    // ===========================
+    // REMOVE ITEM FROM ROOM
+    // ===========================
+    if (wasWeapon) {
+        if (player.oldWeapon) {
+            currentRoom.weapon = player.oldWeapon;
+            currentRoom.weaponStrength = player.oldWeaponStrength;
+            currentRoom.weaponUses = player.oldWeaponUses;
+            player.oldWeapon = null;
+            player.oldWeaponStrength = null;
+            player.oldWeaponUses = null;
+        } else {
+            currentRoom.weapon = null;
+            currentRoom.weaponStrength = null;
+            currentRoom.weaponUses = null;
+        }
+    }
+
+    if (wasFood) {
+        currentRoom.food = null;
+        currentRoom.foodHealth = null;
+    }
+
+    if (wasHealth) {
+        currentRoom.health = null;
+        currentRoom.healthValue = null;
+    }
+
+    if (wasShield) {
+        if (player.oldShield) {
+            currentRoom.shield = player.oldShield;
+            currentRoom.shieldStrength = player.oldShieldStrength;
+            currentRoom.shieldUses = player.oldShieldUses;
+            player.oldShield = null;
+            player.oldShieldStrength = null;
+            player.oldShieldUses = null;
+        } else {
+            currentRoom.shield = null;
+            currentRoom.shieldStrength = null;
+            currentRoom.shieldUses = null;
+        }
+    }
+
+    if (wasOther) {
+        currentRoom.otherItem = null;
+    }
+
+    renderPlayerStatus();
+    renderInventory();
+    renderRoom();
+}
+
 
 
 // =====================
@@ -98,7 +323,7 @@ function attackEnemy() {
         }
 
         if (player.shielduses === 0) {
-            alert('Your ' + player.shield + ' breaks!');
+            showPopup('Your ' + player.shield + ' breaks!');
             player.shieldstrength = 0;
             player.shielduses = -1;
             player.shield = 'None';
@@ -110,13 +335,12 @@ function attackEnemy() {
     player.health -= enemyDamage;
 
     renderRoom(); 
-
-    let descriptionDiv = document.getElementById('description');
-    descriptionDiv.textContent =
+    let msg =
         `You attack the ${currentRoom.enemy} and deal ${playerDamage} damage. ` +
         `The ${currentRoom.enemy} has ${currentRoom.enemyHealth} health left. ` +
         `The ${currentRoom.enemy} attacks you and deals ${enemyDamage} damage. ` +
         `You have ${player.health} health left.`;
+    showPopup(msg);
 
     // Weapon usage + break logic
     if (player.weaponuses > 0 && player.weaponuses !== -1) {
@@ -124,10 +348,10 @@ function attackEnemy() {
         player.weaponuses -= 1;
 
         if (player.weaponuses === 0) {
-            if (player.weapon == 'Throwing Knives') alert('You are out of knives!');
-            else if (player.weapon == 'Crossbow') alert('You are out of bolts!');
-            else if (player.weapon == "Asterion's Wrath") alert('Asterions Wrath disintegrates!');
-            else alert('Your ' + player.weapon + ' breaks!');
+            if (player.weapon == 'Throwing Knives') showPopup('You are out of knives!');
+            else if (player.weapon == 'Crossbow') showPopup('You are out of bolts!');
+            else if (player.weapon == "Asterion's Wrath") showPopup('Asterions Wrath disintegrates!');
+            else showPopup('Your ' + player.weapon + ' breaks!');
 
             player.weaponstrength = 10;
             player.weaponuses = -1;
@@ -137,14 +361,14 @@ function attackEnemy() {
     }
 
     if (player.health <= 0) {
-        alert(`You have been defeated by the ${currentRoom.enemy}. Game Over!`);
+        showPopup(`You have been defeated by the ${currentRoom.enemy}. Game Over!`, true);
         location.reload();
         return;
     }
 
     // ENEMY DEFEATED
     if (currentRoom.enemyHealth <= 0) {
-        alert(`You have defeated the ${currentRoom.enemy}.`);
+        showPopup(`You have defeated the ${currentRoom.enemy}.`);
 
         // >>> Restore exits if enemy blocked them <<<
         if (currentRoom.storedExits) {
@@ -152,7 +376,7 @@ function attackEnemy() {
             currentRoom.storedExits = null;
         }
 
-        descriptionDiv.textContent = `You have defeated the ${currentRoom.enemy}.`;
+       // descriptionDiv.textContent = `You have defeated the ${currentRoom.enemy}.`;
 
         currentRoom.enemy = null;
         currentRoom.enemyHealth = null;
@@ -264,7 +488,7 @@ window.addEventListener('keydown', (e) => {
                 player.score += 1000;
                 player.percentcomplete += 5;
 
-                alert(`You gave the Oracle the ${itemName}. The Oracle gave you the ${randomArtifact} in return.`);
+                showPopup(`You gave the Oracle the ${itemName}. The Oracle gave you the ${randomArtifact} in return.`);
 
                 currentRoom.enemy = null;
                 currentRoom.enemyStatus = null;
@@ -295,7 +519,7 @@ window.addEventListener('keydown', (e) => {
             }
 
             currentRoom.enemyStatus = 'curious';
-            alert(`You gave the ${currentRoom.enemy} some ${foodName}. It now looks curious.`);
+            showPopup(`You gave the ${currentRoom.enemy} some ${foodName}. It now looks curious.`);
             renderRoom();
         }
     }
@@ -310,13 +534,13 @@ window.addEventListener('keydown', (e) => {
         if ((currentRoom.enemyStatus === 'hungry' && Math.random() < 0.5)
             || (Math.random() < 0.25 && exits.length > 0)) {
 
-            alert('You manage to escape!');
+            showPopup('You manage to escape!', true);
             const randomDirection = exits[Math.floor(Math.random() * exits.length)];
             currentRoom.exits = currentRoom.storedExits;
             movePlayer(randomDirection);
 
         } else {
-            alert('The enemy catches you and you must fight!');
+            showPopup('The enemy catches you and you must fight!');
             attackEnemy();
         }
     }
@@ -333,7 +557,7 @@ window.addEventListener('keydown', (e) => {
                     player.inventory.artifacts = player.inventory.artifacts.filter(item => item.name !== currentRoom.dungeonExits[i].activationArtifact);
                     player.score += 1000;
                     player.percentcomplete += 5;
-                    alert(`You used the ${currentRoom.dungeonExits[i].activationArtifact} to activate the ${currentRoom.dungeonExits[i].name} and returned home. You win!`);
+                    showPopup(`You used the ${currentRoom.dungeonExits[i].activationArtifact} to activate the ${currentRoom.dungeonExits[i].name} and returned home. You win!`, true);
                     location.reload();
                     return;
                 }
@@ -371,27 +595,27 @@ window.addEventListener('keydown', (e) => {
             if (effect === 0) {
                 let loss = Math.floor(Math.random() * 50) * -1;
                 player.health += loss;
-                alert(`You drank the potion and lost ${loss} health.`);
+                showPopup(`You drank the potion and lost ${loss} health.`);
                 if (player.health <= 0) {
-                    alert('You died!');
+                    showPopup('You died!', true);
                     location.reload();
                 }
             } else if (effect === 1) {
                 player.health += Math.floor(Math.random() * 500);
                 if (player.health > player['max-health']) player.health = player['max-health'];
-                alert(`You gained health.`);
+                showPopup(`You gained health.`);
             } else {
                 let randomRoom = Math.floor(Math.random() * TOTAL_SCREENS);
                 currentX = randomRoom % GRID_SIZE;
                 currentY = Math.floor(randomRoom / GRID_SIZE);
-                alert(`You passed out and woke up somewhere else.`);
+                showPopup(`You passed out and woke up somewhere else.`, true);
                 renderRoom();
             }
 
         } else {
             // Health item
             if (player.health === player['max-health']) {
-                alert('Full health.');
+                showPopup('Full health.');
                 return;
             }
 
@@ -426,266 +650,98 @@ window.addEventListener('keydown', (e) => {
     // PICK UP ITEM (P)
     // =====================
     if (e.key === 'p') {
-
-        let currentRoom = dungeon[getIndex(currentX, currentY)];
-        let items = [];
-
-        if (currentRoom.weapon) items.push(currentRoom.weapon);
-        if (currentRoom.food) items.push(currentRoom.food);
-        if (currentRoom.health) items.push(currentRoom.health);
-        if (currentRoom.shield) items.push(currentRoom.shield);
-        if (currentRoom.otherItem) items.push(currentRoom.otherItem);
-
-        if (items.length === 0) return;
-
-        let itemIndex = prompt(
-            `Select an item to pick up:\n${items.map((i, idx) => `${idx + 1}. ${i}`).join('\n')}`
-        );
-        if (!itemIndex) return;
-        itemIndex = parseInt(itemIndex) - 1;
-
-        let selectedItem = items[itemIndex];
-
-        // Enemy reacts BEFORE item pickup
-        if (currentRoom.enemy && currentRoom.enemyStatus !== 'furious' && currentRoom.enemyStatus !== 'sleeping') {
-            currentRoom.storedExits = currentRoom.exits;
-            currentRoom.exits = [];
-            currentRoom.enemyStatus = 'furious';
-            alert(`The ${currentRoom.enemy} becomes furious and blocks the exits.`);
-            renderRoom();
-            return;
-        }
-
-        if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
-            if (Math.random() < 0.8) {
-                alert('The ' + currentRoom.enemy + ' wakes up!');
-                let newStatus;
-                do {
-                    newStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
-                } while (newStatus === 'sleeping');
-
-                currentRoom.enemyStatus = newStatus;
-
-                if (newStatus === 'furious' || newStatus === 'hungry') {
-                    currentRoom.storedExits = currentRoom.exits;
-                    currentRoom.exits = [];
-                }
-
-                renderRoom();
-                return;
-            }
-        }
-
-        // Identify item type
-        const wasWeapon = (currentRoom.weapon === selectedItem);
-        const wasFood = (currentRoom.food === selectedItem);
-        const wasHealth = (currentRoom.health === selectedItem);
-        const wasShield = (currentRoom.shield === selectedItem);
-        const wasOther = (currentRoom.otherItem === selectedItem);
-
-
-        // ===========================
-        // WEAPON PICKUP (unchanged)
-        // ===========================
-        if (WEAPON_ITEMS.map(w => w.name).includes(selectedItem)) {
-            if (player.inventory.weapon.length > 0) {
-                let old = player.inventory.weapon[0];
-                player.oldWeapon = old.name;
-                player.oldWeaponStrength = old.strength;
-                player.oldWeaponUses = old.uses;
-                player.inventory.weapon = [];
-                player.weaponstrength = 10;
-                alert(`You drop your ${old.name} and pick up the ${selectedItem}.`);
-            }
-
-            player.weaponstrength = currentRoom.weaponStrength;
-            player.weaponuses = currentRoom.weaponUses;
-            player.weapon = selectedItem;
-
-            player.inventory.weapon.push({
-                name: selectedItem,
-                strength: currentRoom.weaponStrength,
-                uses: currentRoom.weaponUses
-            });
-        }
-
-
-        // ===========================
-        // SHIELD PICKUP (FULL FIXED)
-        // ===========================
-        if (SHIELD_ITEMS.map(s => s.name).includes(selectedItem)) {
-
-            // --- CASE 1: Player already has THIS shield ---
-            if (player.shield === selectedItem) {
-
-                // remove shield from room, do NOT refresh durability
-                currentRoom.shield = null;
-                currentRoom.shieldStrength = null;
-                currentRoom.shieldUses = null;
-
-                alert(`You already have the ${selectedItem}.`);
-                renderRoom();
-                return;
-            }
-
-            // --- CASE 2: Player is replacing a different shield ---
-            if (player.inventory.shield.length > 0) {
-                let old = player.inventory.shield[0];
-                player.oldShield = old.name;
-                player.oldShieldStrength = old.strength;
-                player.oldShieldUses = old.uses;
-                player.inventory.shield = [];
-                alert(`You drop your ${old.name} and pick up the ${selectedItem}.`);
-            }
-
-            // Equip new shield
-            player.shieldstrength = currentRoom.shieldStrength;
-            player.shielduses = currentRoom.shieldUses;
-            player.shield = selectedItem;
-
-            player.inventory.shield.push({
-                name: selectedItem,
-                strength: player.shieldstrength,
-                uses: player.shielduses
-            });
-        }
-
-
-        // ===========================
-        // FOOD / HEALTH PICKUP
-        // ===========================
-        if (FOOD_ITEMS.map(f => f.name).includes(selectedItem) ||
-            HEALTH_ITEMS.map(h => h.name).includes(selectedItem)) {
-
-            let inv =
-                player.inventory.food.find(i => i.name === selectedItem) ||
-                player.inventory.health.find(i => i.name === selectedItem);
-
-            if (inv) {
-                inv.quantity += 1;
-            } else {
-                player.inventory.food.push({ name: selectedItem, quantity: 1 });
-            }
-
-            alert(`You pick up the ${selectedItem}.`);
-        }
-
-
-        // ===========================
-        // OTHER ITEMS (Map etc)
-        // ===========================
-        if (OTHER_ITEMS.map(o => o.name).includes(selectedItem)) {
-            if (selectedItem === 'Map') {
-                let roomsRevealed = Math.floor(Math.random() * 10) + 1;
-                let adj = [];
-
-                for (let dx = -1; dx <= 1; dx++) {
-                    for (let dy = -1; dy <= 1; dy++) {
-                        if (dx === 0 && dy === 0) continue;
-                        let nx = currentX + dx;
-                        let ny = currentY + dy;
-                        if (isInBounds(nx,ny)) adj.push(getIndex(nx,ny));
-                    }
-                }
-
-                let revealList = [];
-                while (roomsRevealed-- > 0 && adj.length > 0) {
-                    revealList.push(adj.splice(Math.floor(Math.random() * adj.length), 1)[0]);
-                }
-
-                revealList.forEach(i => dungeon[i].discovered = true);
-                alert('The map reveals some of the surrounding caves.');
-                renderMiniMap();
-            }
-        }
-
-
-        // ===========================
-        // REMOVE ITEM FROM ROOM
-        // ===========================
-
-        if (wasWeapon) {
-            if (player.oldWeapon) {
-                currentRoom.weapon = player.oldWeapon;
-                currentRoom.weaponStrength = player.oldWeaponStrength;
-                currentRoom.weaponUses = player.oldWeaponUses;
-                player.oldWeapon = null;
-                player.oldWeaponStrength = null;
-                player.oldWeaponUses = null;
-            } else {
-                currentRoom.weapon = null;
-                currentRoom.weaponStrength = null;
-                currentRoom.weaponUses = null;
-            }
-        }
-
-        if (wasFood) {
-            currentRoom.food = null;
-            currentRoom.foodHealth = null;
-        }
-
-        if (wasHealth) {
-            currentRoom.health = null;
-            currentRoom.healthValue = null;
-        }
-
-        if (wasShield) {
-            if (player.oldShield) {
-                // drop the OLD shield into the room
-                currentRoom.shield = player.oldShield;
-                currentRoom.shieldStrength = player.oldShieldStrength;
-                currentRoom.shieldUses = player.oldShieldUses;
-                player.oldShield = null;
-                player.oldShieldStrength = null;
-                player.oldShieldUses = null;
-            } else {
-                currentRoom.shield = null;
-                currentRoom.shieldStrength = null;
-                currentRoom.shieldUses = null;
-            }
-        }
-
-        if (wasOther) {
-            currentRoom.otherItem = null;
-        }
-
-        // FINAL RERENDER
-        renderPlayerStatus();
-        renderInventory();
-
-        // ==========================================
-        // REMOVE ITEM FROM ROOM AFTER PICKUP
-        // (This keeps descriptions accurate)
-        // ==========================================
-        if (wasWeapon) {
-            currentRoom.weapon = null;
-            currentRoom.weaponStrength = null;
-            currentRoom.weaponUses = null;
-        }
-
-        if (wasFood) {
-            currentRoom.food = null;
-            currentRoom.foodHealth = null;
-        }
-
-        if (wasHealth) {
-            currentRoom.health = null;
-            currentRoom.healthValue = null;
-        }
-
-        if (wasShield) {
-            currentRoom.shield = null;
-            currentRoom.shieldStrength = null;
-            currentRoom.shieldUses = null;
-        }
-
-        if (wasOther) {
-            currentRoom.otherItem = null;
-        }
-
-
-        renderRoom();
+        pickUpItem();
     }
 
     renderPlayerStatus();
+});
+
+document.getElementById("game").addEventListener("click", (e) => {
+    const game = e.currentTarget;
+    const rect = game.getBoundingClientRect();
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const w = rect.width;
+    const h = rect.height;
+
+    const margin = 60; // click zone thickness near edges
+    const room = dungeon[getIndex(currentX, currentY)];
+
+    // Check UP
+    if (y < margin && room.exits.includes("UP")) {
+        movePlayer("UP");
+        return;
+    }
+
+    // Check DOWN
+    if (y > h - margin && room.exits.includes("DOWN")) {
+        movePlayer("DOWN");
+        return;
+    }
+
+    // Check LEFT
+    if (x < margin && room.exits.includes("LEFT")) {
+        movePlayer("LEFT");
+        return;
+    }
+
+    // Check RIGHT
+    if (x > w - margin && room.exits.includes("RIGHT")) {
+        movePlayer("RIGHT");
+        return;
+    }
+});
+
+let tooltipLocked = false;
+
+
+const gameEl = document.getElementById("game");
+const tooltip = document.getElementById("exit-tooltip");
+
+gameEl.addEventListener("mousemove", (e) => {
+        if (tooltipLocked) return;
+
+    const rect = gameEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const w = rect.width;
+    const h = rect.height;
+
+    const margin = 60;   // same margin you used for gap-click
+    const room = dungeon[getIndex(currentX, currentY)];
+
+    let dir = null;
+
+    // Detect UP
+    if (y < margin && room.exits.includes("UP")) dir = "UP";
+
+    // Detect DOWN
+    else if (y > h - margin && room.exits.includes("DOWN")) dir = "DOWN";
+
+    // Detect LEFT
+    else if (x < margin && room.exits.includes("LEFT")) dir = "LEFT";
+
+    // Detect RIGHT
+    else if (x > w - margin && room.exits.includes("RIGHT")) dir = "RIGHT";
+
+    if (dir) {
+        // Change pointer
+        gameEl.style.cursor = "pointer";
+
+        // Tooltip text
+        tooltip.textContent = `Exit ${dir}`;
+
+        // Position slightly offset from mouse
+        tooltip.style.left = (e.clientX + 12) + "px";
+        tooltip.style.top  = (e.clientY + 12) + "px";
+
+        tooltip.style.opacity = 1;
+    } else {
+        // Reset cursor + tooltip
+        gameEl.style.cursor = "default";
+        tooltip.style.opacity = 0;
+    }
 });

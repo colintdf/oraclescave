@@ -15,11 +15,17 @@
 </head>
 
 <body>
+
+
     <h1>The Oracle's Dungeon</h1>
 
     <div id="status-panel"></div>
 
     <div id="game"></div>
+<div id="game-popup-overlay"></div>
+
+<div id="game-popup-container"></div>
+
 
     <div id="mini-map-container">
         <div id="description-panel">
@@ -37,6 +43,22 @@
 
     <div id="info">Use Arrow Keys to Move</div>
 
+    <div id="exit-tooltip" 
+        style="
+            position:absolute;
+            background:rgba(0,0,0,0.7);
+            color:white;
+            padding:4px 8px;
+            border-radius:3px;
+            font-size:12px;
+            pointer-events:none;
+            opacity:0;
+            transition:opacity 0.1s;
+            z-index:10000;
+        ">
+    </div>
+
+
     <!-- JS modules in correct order -->
     <script src="app/js/state.js"></script>
     <script src="app/js/descriptions.js"></script>
@@ -48,6 +70,8 @@
     <script>
         preloadSpriteSheets(() => {
             renderStartScreen();
+            positionPopupContainer();
+
         });
     </script>
 </body>
