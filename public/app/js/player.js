@@ -40,24 +40,21 @@ const DIR_TO_ROW = {
 };
 
 // =============================
-// DEBUG
+// DEBUG (disabled)
 // =============================
 
 function dbgState(label) {
     return false;
     console.log(
-        `%c[DBG] ${label} | phase=${playerSpriteState.phase} idleAnimating=${playerSpriteState.idleAnimating} anim=${playerIsAnimating} dir=${playerSpriteState.dir}`,
-        "color:#0af"
+        `[DBG] ${label} | phase=${playerSpriteState.phase} anim=${playerIsAnimating} dir=${playerSpriteState.dir}`
     );
 }
 
 function dbgIdleCheck() {
     return false;
     const now = performance.now();
-    const diff = nextIdleAt - now;
     console.log(
-        `%c[IDLE-DBG] now=${now.toFixed(0)} nextIdleAt=${nextIdleAt.toFixed(0)} Δ=${diff.toFixed(0)}ms phase=${playerSpriteState.phase} idleAnimating=${playerSpriteState.idleAnimating}`,
-        "color:#fa0"
+        `[IDLE-DBG] now=${now.toFixed(0)} phase=${playerSpriteState.phase}`
     );
 }
 
@@ -68,22 +65,17 @@ function dbgIdleCheck() {
 var playerSpriteState = {
     x: 0,
     y: 0,
-    dir: "down",
-    phase: "idle",
+    dir: "down",        // "up" | "down" | "left" | "right"
+    phase: "idle",      // "idle" | "move" | "toExit" | "toCenter"
     targetX: 0,
     targetY: 0,
     nextRoom: null,
     lastTimestamp: null,
     initialised: false,
-    animStart: performance.now(),
-    idleAnimating: false
+    animStart: performance.now()
 };
 
 var playerIsAnimating = false;
-
-var nextIdleAt = performance.now() + 2000;
-const IDLE_TRIGGER_MIN = 2000;
-const IDLE_TRIGGER_MAX = 5000;
 
 // =============================
 // DIMENSIONS
@@ -103,7 +95,6 @@ function getRoomDimensions() {
 function isEnemyPresent() {
     const room = dungeon[getIndex(currentX, currentY)];
     const present = !!room.enemy && room.enemyHealth > 0;
-   // console.log("[DBG] Enemy present?", present);
     return present;
 }
 
@@ -113,9 +104,14 @@ function isEnemyPresent() {
 
 function getFrameOffset(dirKey, phaseTime, phase) {
     const row = DIR_TO_ROW[dirKey];
-    let framesThisDir = (phase === "idle" ? IDLE_FRAMES[dirKey] : FRAMES_PER_DIR);
-    let fps = (phase === "idle" ? IDLE_FPS : MOVE_FPS);
+
+    // For everything except "idle", use movement sheet timing
+    const isIdle = (phase === "idle");
+    const framesThisDir = isIdle ? IDLE_FRAMES[dirKey] : FRAMES_PER_DIR;
+    const fps = isIdle ? IDLE_FPS : MOVE_FPS;
+
     const frame = Math.floor(phaseTime * fps) % framesThisDir;
+
     return {
         sx: frame * FRAME_W + INNER_OFFSET,
         sy: row * FRAME_H + INNER_OFFSET,
@@ -132,68 +128,26 @@ function updateSpriteDirectionFromVector(dx, dy) {
 }
 
 // =============================
-// ONE-SHOT IDLE ANIMATION
-// =============================
-
-function runIdleAnimationOnce() {
-   // console.log("%c[IDLE] Triggered!", "color:yellow");
-    dbgState("Idle animation starting");
-
-    const sprite = document.getElementById("player-sprite");
-    if (!sprite) return;
-
-    playerSpriteState.idleAnimating = true;
-    playerSpriteState.animStart = performance.now();
-
-    if (isEnemyPresent()) {
-        playerSpriteState.dir = "left";
-    } else {
-        const dirs = ["down", "left", "right", "up"];
-        playerSpriteState.dir = dirs[Math.floor(Math.random() * dirs.length)];
-    }
-
-    const start = performance.now();
-
-    function step(now) {
-        const t = (now - start) / 1000;
-        const total = IDLE_FRAMES[playerSpriteState.dir];
-        const frame = Math.floor(t * IDLE_FPS);
-
-        if (frame >= total) {
-            playerSpriteState.idleAnimating = false;
-            playerSpriteState.animStart = performance.now();
-            return;
-        }
-
-        const { sx, sy } = getFrameOffset(playerSpriteState.dir, t, "idle");
-        const scaleX = DISPLAY_W / INNER_W;
-        const scaleY = DISPLAY_H / INNER_H;
-
-        sprite.style.backgroundPosition =
-            `-${sx * scaleX}px -${sy * scaleY}px`;
-
-        requestAnimationFrame(step);
-    }
-
-    requestAnimationFrame(step);
-}
-
-// =============================
-// RENDER
+// RENDER HELPERS
 // =============================
 
 function getSpriteFeetOffset(el) {
-    if (el.id === 'player-sprite') {
-        return 30; // ADJUST UNTIL EXACTLY MATCHING FEET
+    if (el.id === "player-sprite") {
+        return 30;
     }
     return 0;
 }
+
+// =============================
+// MAIN SPRITE RENDER
+// =============================
 
 function renderPlayerSprite(gameDiv) {
     if (!gameDiv) return;
 
     const { w, h } = getRoomDimensions();
 
+    // Initial placement at room center
     if (!playerSpriteState.initialised) {
         playerSpriteState.x = w * 0.5;
         playerSpriteState.y = h * 0.5;
@@ -218,71 +172,69 @@ function renderPlayerSprite(gameDiv) {
 
     dbgIdleCheck();
 
+    // If idle and an enemy is present, face left like before
     if (!playerIsAnimating &&
         playerSpriteState.phase === "idle" &&
         isEnemyPresent()) {
         playerSpriteState.dir = "left";
     }
 
-    let sheet, cols, rows;
-
+    // Decide which sheet to use based on phase
+    let cols, rows, img;
     if (playerSpriteState.phase === "idle") {
-        sheet = PLAYER_SPRITE_SHEET_IDLE;
         cols = IDLE_TOTAL_COLS;
         rows = IDLE_ROWS;
+        img = spriteSheets.idle;
     } else {
-        sheet = PLAYER_SPRITE_SHEET_MOVE;
         cols = FRAMES_PER_DIR;
         rows = 4;
+        img = spriteSheets.move;
     }
-
-    const img = (playerSpriteState.phase === "idle")
-        ? spriteSheets.idle
-        : spriteSheets.move;
 
     const scaleX = DISPLAY_W / INNER_W;
     const scaleY = DISPLAY_H / INNER_H;
 
-    // FIX #1: Apply background-size BEFORE changing the image
-    sprite.style.backgroundSize =
-        `${cols * FRAME_W * scaleX}px ${rows * FRAME_H * scaleY}px`;
-
-    // FIX #2: Only change background-image when it actually changed
-    if (sprite.dataset.sheet !== img.src) {
-        sprite.dataset.sheet = img.src;
-        sprite.style.backgroundImage = `url(${img.src})`;
+    // Set background-size based on sheet grid
+    const sizeKey = `${cols}x${rows}`;
+    if (sprite.dataset.size !== sizeKey) {
+        sprite.dataset.size = sizeKey;
+        sprite.style.backgroundSize =
+            `${cols * FRAME_W * scaleX}px ${rows * FRAME_H * scaleY}px`;
     }
 
+    // Only change background-image when it actually changes
+    if (img && sprite.dataset.sheet !== img.src) {
+        sprite.dataset.sheet = img.src;
+        sprite.style.backgroundImage = `url(${img.src})`;
+        // Reset animation timer on sheet swap for stable frames
+        playerSpriteState.animStart = performance.now();
+    }
+
+    // Position sprite
     sprite.style.left = playerSpriteState.x + "px";
     sprite.style.top = playerSpriteState.y + "px";
-    // Depth sorting: higher Y = in front, lower Y = behind
-    applyDepthSorting(sprite);
 
+    // Depth sorting: higher Y = in front, lower Y = behind
+    if (typeof applyDepthSorting === "function") {
+        applyDepthSorting(sprite);
+    }
+
+    // Animate current phase
     const now = performance.now();
     const t = (now - playerSpriteState.animStart) / 1000;
 
-    if (!playerSpriteState.idleAnimating) {
-        const { sx, sy } = getFrameOffset(
-            playerSpriteState.dir,
-            playerSpriteState.phase === "idle" ? 0 : t,
-            playerSpriteState.phase
-        );
-
-        sprite.style.backgroundPosition = `-${sx * scaleX}px -${sy * scaleY}px`;
+    let phaseKey = playerSpriteState.phase;
+    if (phaseKey !== "idle" && phaseKey !== "move") {
+        phaseKey = "move"; // transitions still use movement frames
     }
+    const { sx, sy } = getFrameOffset(
+        playerSpriteState.dir,
+        t,
+        phaseKey
+    );
 
-    const readyForIdle =
-        !playerIsAnimating &&
-        playerSpriteState.phase === "idle" &&
-        !playerSpriteState.idleAnimating &&
-        now >= nextIdleAt;
-
-    if (readyForIdle) {
-        runIdleAnimationOnce();
-        nextIdleAt =
-            now + IDLE_TRIGGER_MIN +
-            Math.random() * (IDLE_TRIGGER_MAX - IDLE_TRIGGER_MIN);
-    }
+    sprite.style.backgroundPosition =
+        `-${sx * scaleX}px -${sy * scaleY}px`;
 }
 
 // =============================
@@ -294,11 +246,16 @@ function getExitPositionForDirection(dir) {
     const margin = 40;
 
     switch (dir) {
-        case "UP": return { x: w * 0.5, y: WALL_THICKNESS_PERC * h + margin };
-        case "DOWN": return { x: w * 0.5, y: h - WALL_THICKNESS_PERC * h - margin };
-        case "LEFT": return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.5 };
-        case "RIGHT": return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.5 };
-        default: return { x: w * 0.5, y: h * 0.5 };
+        case "UP":
+            return { x: w * 0.5, y: WALL_THICKNESS_PERC * h + margin };
+        case "DOWN":
+            return { x: w * 0.5, y: h - WALL_THICKNESS_PERC * h - margin };
+        case "LEFT":
+            return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.5 };
+        case "RIGHT":
+            return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.5 };
+        default:
+            return { x: w * 0.5, y: h * 0.5 };
     }
 }
 
@@ -307,11 +264,16 @@ function getEntryPositionForDirection(dir) {
     const margin = 40;
 
     switch (dir) {
-        case "UP": return { x: w * 0.5, y: h - WALL_THICKNESS_PERC * h - margin };
-        case "DOWN": return { x: w * 0.5, y: WALL_THICKNESS_PERC * h + margin };
-        case "LEFT": return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.5 };
-        case "RIGHT": return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.5 };
-        default: return { x: w * 0.5, y: h * 0.5 };
+        case "UP":
+            return { x: w * 0.5, y: h - WALL_THICKNESS_PERC * h - margin };
+        case "DOWN":
+            return { x: w * 0.5, y: WALL_THICKNESS_PERC * h + margin };
+        case "LEFT":
+            return { x: w - WALL_THICKNESS_PERC * w - margin, y: h * 0.5 };
+        case "RIGHT":
+            return { x: WALL_THICKNESS_PERC * w + margin, y: h * 0.5 };
+        default:
+            return { x: w * 0.5, y: h * 0.5 };
     }
 }
 
@@ -321,8 +283,10 @@ function getEntryPositionForDirection(dir) {
 
 function startRoomTransition(direction, nextGridX, nextGridY) {
     if (playerIsAnimating) return;
+    playerSpriteState.animStart = performance.now();
 
     playerSpriteState.phase = "toExit";
+    playerIsAnimating = true;
 
     if (direction === "UP") playerSpriteState.dir = "up";
     if (direction === "DOWN") playerSpriteState.dir = "down";
@@ -345,14 +309,15 @@ function startRoomTransition(direction, nextGridX, nextGridY) {
 }
 
 // =============================
-// MOVEMENT ANIMATION
+// MOVEMENT ANIMATION (SCREEN TRANSITION)
 // =============================
 
 function animatePlayerSprite(timestamp) {
     if (!playerIsAnimating) return;
 
-    if (!playerSpriteState.lastTimestamp)
+    if (!playerSpriteState.lastTimestamp) {
         playerSpriteState.lastTimestamp = timestamp;
+    }
 
     const dt = (timestamp - playerSpriteState.lastTimestamp) / 1000;
     playerSpriteState.lastTimestamp = timestamp;
@@ -362,7 +327,12 @@ function animatePlayerSprite(timestamp) {
     const now = performance.now();
     const t = (now - playerSpriteState.animStart) / 1000;
 
-    const { sx, sy } = getFrameOffset(playerSpriteState.dir, t, playerSpriteState.phase);
+    // Use movement timing for transitions
+    const { sx, sy } = getFrameOffset(
+        playerSpriteState.dir,
+        t,
+        "move"
+    );
     const scaleX = DISPLAY_W / INNER_W;
     const scaleY = DISPLAY_H / INNER_H;
 
@@ -377,9 +347,11 @@ function animatePlayerSprite(timestamp) {
     const step = PLAYER_SPEED_PX_PER_SEC * dt;
 
     if (dist <= step) {
+        // Snap to target
         playerSpriteState.x = playerSpriteState.targetX;
         playerSpriteState.y = playerSpriteState.targetY;
 
+        // Reached exit, now change room
         if (playerSpriteState.phase === "toExit") {
             const nr = playerSpriteState.nextRoom;
 
@@ -405,26 +377,26 @@ function animatePlayerSprite(timestamp) {
             return;
         }
 
+        // Reached center, back to idle
         if (playerSpriteState.phase === "toCenter") {
             playerSpriteState.phase = "idle";
             playerIsAnimating = false;
             playerSpriteState.animStart = performance.now();
-
-            nextIdleAt = performance.now() +
-                IDLE_TRIGGER_MIN +
-                Math.random() * (IDLE_TRIGGER_MAX - IDLE_TRIGGER_MIN);
 
             renderPlayerSprite(document.getElementById("game"));
             return;
         }
 
     } else {
+        // Move towards target
         const nx = dx / dist;
         const ny = dy / dist;
         playerSpriteState.x += nx * step;
         playerSpriteState.y += ny * step;
 
-        updateSpriteDirectionFromVector(nx, ny);
+        if (playerSpriteState.phase === "move") {
+            updateSpriteDirectionFromVector(nx, ny);
+        }    
     }
 
     if (sprite) {

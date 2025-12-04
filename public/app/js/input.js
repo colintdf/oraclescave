@@ -1,6 +1,16 @@
 // =====================
 // FULL INPUT.JS (FIXED SHIELD + EXIT RESTORE + ANIMATED MOVEMENT)
-// =====================
+// ====// ===========================
+// GLOBAL MOVEMENT STATE
+// ===========================
+window._movementKeys = new Set();
+window._lastFrameTime = performance.now();
+window._movementActive = false;
+
+function isKeyDown(k) {
+    return window._movementKeys.has(k);
+}
+
 
 // Movement wrapper – original behaviour + animation hook
 function movePlayer(direction) {
@@ -437,224 +447,143 @@ function attackEnemy() {
 }
 
 
-// =====================
-// KEYBOARD CONTROL HANDLER
-// =====================
+window.addEventListener("keydown", (e) => {
+    window._movementKeys.add(e.key);
 
-window.addEventListener('keydown', (e) => {
-
-    if (e.key === 'ArrowUp') movePlayer('UP');
-    if (e.key === 'ArrowDown') movePlayer('DOWN');
-    if (e.key === 'ArrowLeft') movePlayer('LEFT');
-    if (e.key === 'ArrowRight') movePlayer('RIGHT');
-
-    if (e.key === 'a') attackEnemy();
-
-    // REVEAL MAP (Q)
-    if (e.key === 'q') {
-        dungeon.forEach(r => r.discovered = true);
-        renderMiniMap();
-        document.querySelectorAll('.mini-room').forEach((roomDiv, index) => {
-            roomDiv.addEventListener('click', () => {
-                currentX = index % GRID_SIZE;
-                currentY = Math.floor(index / GRID_SIZE);
-                renderRoom();
-            });
-        });
+    // Start movement loop if not running
+    if (!window._movementActive) {
+        window._movementActive = true;
+        requestAnimationFrame(movementLoop);
     }
 
-    // GIVE (G)
-    if (e.key === 'g') {
-        let currentRoom = dungeon[getIndex(currentX, currentY)];
+    if (e.key === "f") attackEnemy();
+    if (e.key === "p") pickUpItem();
+    // use and give?
 
-        // Oracle gift logic
-        if (currentRoom.isBoss && currentRoom.enemy == 'Oracle') {
-            if (player.inventory.artifacts.length === 0) {
-                return;
-            }
-
-            let artifactItems = player.inventory.artifacts.map((item, index) => `${index + 1}. ${item.name}`);
-            let itemIndex = prompt(`Select an artifact to give to the Oracle:\n${artifactItems.join('\n')}`);
-
-            if (itemIndex) {
-                itemIndex = parseInt(itemIndex) - 1;
-                let chosen = player.inventory.artifacts[itemIndex];
-                let itemName = chosen.name;
-
-                player.inventory.artifacts.splice(itemIndex, 1);
-
-                const randomArtifact = EXITS.map(exit => exit.activationArtifact)[Math.floor(Math.random() * EXITS.length)];
-                player.inventory.artifacts.push({ name: randomArtifact, quantity: 1 });
-                player.score += 1000;
-                player.percentcomplete += 5;
-
-                showPopup(`You gave the Oracle the ${itemName}. The Oracle gave you the ${randomArtifact} in return.`);
-
-                currentRoom.enemy = null;
-                currentRoom.enemyStatus = null;
-                currentRoom.artifact = null;
-                currentRoom.isBoss = false;
-
-                renderRoom();
-            }
-
-            return;
-        }
-
-        // GIVE FOOD TO HUNGRY ENEMY
-        if (!currentRoom.enemy || currentRoom.enemyStatus !== 'hungry') return;
-        if (player.inventory.food.length === 0) return;
-
-        let foodItems = player.inventory.food.map((i, idx) => `${idx + 1}. ${i.name} (${i.quantity})`);
-        let itemIndex = prompt(`Select an item to give to the enemy:\n${foodItems.join('\n')}`);
-
-        if (itemIndex) {
-            itemIndex = parseInt(itemIndex) - 1;
-            let foodName = player.inventory.food[itemIndex].name;
-
-            // Decrement food
-            player.inventory.food[itemIndex].quantity -= 1;
-            if (player.inventory.food[itemIndex].quantity <= 0) {
-                player.inventory.food.splice(itemIndex, 1);
-            }
-
-            currentRoom.enemyStatus = 'curious';
-            showPopup(`You gave the ${currentRoom.enemy} some ${foodName}. It now looks curious.`);
-            renderRoom();
-        }
-    }
-
-    // RUN (R)
-    if (e.key === 'r') {
-        let currentRoom = dungeon[getIndex(currentX, currentY)];
-        if (!currentRoom.enemy) return;
-
-        let exits = currentRoom.storedExits || [];
-
-        if ((currentRoom.enemyStatus === 'hungry' && Math.random() < 0.5)
-            || (Math.random() < 0.25 && exits.length > 0)) {
-
-            showPopup('You manage to escape!', true);
-            const randomDirection = exits[Math.floor(Math.random() * exits.length)];
-            currentRoom.exits = currentRoom.storedExits;
-            movePlayer(randomDirection);
-
-        } else {
-            showPopup('The enemy catches you and you must fight!');
-            attackEnemy();
-        }
-    }
-
-    // USE ITEM (U)
-    if (e.key === 'u') {
-
-        let currentRoom = dungeon[getIndex(currentX, currentY)];
-
-        // Exit usage
-        if (currentRoom.dungeonExits && currentRoom.dungeonExits.length > 0) {
-            for (let i = 0; i < currentRoom.dungeonExits.length; i++) {
-                if (player.inventory.artifacts.find(item => item.name === currentRoom.dungeonExits[i].activationArtifact)) {
-                    player.inventory.artifacts = player.inventory.artifacts.filter(item => item.name !== currentRoom.dungeonExits[i].activationArtifact);
-                    player.score += 1000;
-                    player.percentcomplete += 5;
-                    showPopup(`You used the ${currentRoom.dungeonExits[i].activationArtifact} to activate the ${currentRoom.dungeonExits[i].name} and returned home. You win!`, true);
-                    location.reload();
-                    return;
-                }
-            }
-        }
-
-        // Health + food usage
-        if (player.inventory.health.length === 0 && player.inventory.food.length === 0) return;
-
-        let healthItems = player.inventory.health.map((item, idx) => `${idx + 1}. ${item.name} (${item.quantity})`);
-        let foodItems = player.inventory.food.map((item, idx) => `${idx + healthItems.length + 1}. ${item.name} (${item.quantity})`);
-        let all = healthItems.concat(foodItems);
-
-        let itemIndex = prompt(`Select an item to use:\n${all.join('\n')}`);
-        if (!itemIndex) return;
-        itemIndex = parseInt(itemIndex) - 1;
-
-        let name = all[itemIndex].split(' ')[1];
-
-        let item = FOOD_ITEMS.find(f => f.name === name) || HEALTH_ITEMS.find(h => h.name === name);
-
-        if (item.name === 'potion') {
-
-            // Potion random effects
-            for (let i = 0; i < player.inventory.food.length; i++) {
-                if (player.inventory.food[i].name === item.name) {
-                    player.inventory.food[i].quantity -= 1;
-                    if (player.inventory.food[i].quantity <= 0) {
-                        player.inventory.food.splice(i, 1);
-                    }
-                }
-            }
-
-            let effect = Math.floor(Math.random() * 3);
-            if (effect === 0) {
-                let loss = Math.floor(Math.random() * 50) * -1;
-                player.health += loss;
-                showPopup(`You drank the potion and lost ${loss} health.`);
-                if (player.health <= 0) {
-                    showPopup('You died!', true);
-                    location.reload();
-                }
-            } else if (effect === 1) {
-                player.health += Math.floor(Math.random() * 500);
-                if (player.health > player['max-health']) player.health = player['max-health'];
-                showPopup(`You gained health.`);
-            } else {
-                let randomRoom = Math.floor(Math.random() * TOTAL_SCREENS);
-                currentX = randomRoom % GRID_SIZE;
-                currentY = Math.floor(randomRoom / GRID_SIZE);
-                showPopup(`You passed out and woke up somewhere else.`, true);
-                renderRoom();
-            }
-
-        } else {
-            // Health item
-            if (player.health === player['max-health']) {
-                showPopup('Full health.');
-                return;
-            }
-
-            player.health += item.health;
-            if (player.health > player['max-health']) player.health = player['max-health'];
-
-            // Remove from inventory
-            for (let i = 0; i < player.inventory.health.length; i++) {
-                if (player.inventory.health[i].name === name) {
-                    player.inventory.health[i].quantity -= 1;
-                    if (player.inventory.health[i].quantity <= 0) {
-                        player.inventory.health.splice(i, 1);
-                    }
-                }
-            }
-
-            for (let i = 0; i < player.inventory.food.length; i++) {
-                if (player.inventory.food[i].name === name) {
-                    player.inventory.food[i].quantity -= 1;
-                    if (player.inventory.food[i].quantity <= 0) {
-                        player.inventory.food.splice(i, 1);
-                    }
-                }
-            }
-        }
-
-        renderInventory();
-        renderPlayerStatus();
-    }
-
-    // =====================
-    // PICK UP ITEM (P)
-    // =====================
-    if (e.key === 'p') {
-        pickUpItem();
-    }
-
-    renderPlayerStatus();
 });
+
+
+window.addEventListener("keyup", (e) => {
+    window._movementKeys.delete(e.key);
+
+    // Stop when no keys pressed
+    if (window._movementKeys.size === 0) {
+      //  window._movementActive = false;
+    }
+});
+
+// ===========================
+// MAIN MOVEMENT LOOP
+// ===========================
+// ===========================
+// MAIN MOVEMENT LOOP
+// ===========================
+function movementLoop(now) {
+    if (!window._movementActive) return;
+
+
+    // STOP ALL KEYBOARD MOVEMENT DURING EXIT TRANSITIONS
+    if (playerIsAnimating) {
+        window._movementActive = false;
+        window._movementKeys.clear();
+        return; // do NOT continue into movement logic
+    }
+
+    let dt = (now - window._lastFrameTime) / 1000;
+    window._lastFrameTime = now;
+
+    // Clamp dt to avoid giant jumps after a pause / tab switch
+    if (dt > 0.05) {
+        dt = 0.05; // max 50 ms per frame
+    }
+
+    // Movement vector from pressed keys
+    const up    = isKeyDown("ArrowUp") || isKeyDown("w") || isKeyDown("W");
+    const down  = isKeyDown("ArrowDown") || isKeyDown("s") || isKeyDown("S");
+    const left  = isKeyDown("ArrowLeft") || isKeyDown("a") || isKeyDown("A");
+    const right = isKeyDown("ArrowRight") || isKeyDown("d") || isKeyDown("D");
+
+    let dx = (right ? 1 : 0) - (left ? 1 : 0);
+    let dy = (down ? 1 : 0) - (up ? 1 : 0);
+
+    if (!playerIsAnimating) {
+        if (dx !== 0 || dy !== 0) {
+            if (playerSpriteState.phase !== "move") {
+                playerSpriteState.phase = "move";
+                playerSpriteState.animStart = performance.now();
+            }
+        } else {
+            if (playerSpriteState.phase !== "idle") {
+                playerSpriteState.phase = "idle";
+                playerSpriteState.animStart = performance.now();
+            }
+        }
+    }
+
+
+    if (dx !== 0 || dy !== 0) {
+        tryFreeMove(dx, dy, dt);
+    } else {
+        if (playerSpriteState.phase !== "idle") {
+            playerSpriteState.phase = "idle";
+            playerSpriteState.animStart = 0;
+            playerSpriteState.frame = 0;
+
+            // Force immediate redraw
+            renderPlayerSprite(document.getElementById("game"));
+        }
+    }
+
+
+    requestAnimationFrame(movementLoop);
+}
+
+
+// ===========================
+// POINT-IN-POLYGON TEST
+// ===========================
+function pointInPoly(px, py, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+
+        const intersect =
+            ((yi > py) !== (yj > py)) &&
+            (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+// ===========================
+// WALL COLLISION CHECK
+// ===========================
+function checkCollisions(x, y) {
+    const room = dungeon[getIndex(currentX, currentY)];
+    if (!room.appearance || !room.appearance.walls) return false;
+
+    const { w, h } = getRoomDimensions();
+
+    // Player feet coordinates must be normalized to 0–1 for polygon checking
+    const px = x / w;
+    const py = y / h;
+
+    for (const dir of ["UP", "DOWN", "LEFT", "RIGHT"]) {
+        const segments = room.appearance.walls[dir];
+        if (!segments) continue;
+
+        for (const poly of segments) {
+            if (pointInPoly(px, py, poly)) {
+                return true; // collision
+            }
+        }
+    }
+    return false;
+}
+
+
 
 document.getElementById("game").addEventListener("click", (e) => {
     const game = e.currentTarget;
@@ -745,3 +674,115 @@ gameEl.addEventListener("mousemove", (e) => {
         tooltip.style.opacity = 0;
     }
 });
+
+
+// ===========================
+// NEW SMOOTH MOVEMENT
+// ===========================
+function tryFreeMove(dx, dy, dt) {
+    // Normalize
+    const len = Math.hypot(dx, dy);
+    if (len > 0) {
+        dx /= len;
+        dy /= len;
+    }
+
+    const speed = PLAYER_SPEED_PX_PER_SEC * dt;  // from player.js  :contentReference[oaicite:3]{index=3}
+
+    const nextX = playerSpriteState.x + dx * speed;
+    const nextY = playerSpriteState.y + dy * speed;
+
+
+  
+
+
+    // Set movement animation
+    playerSpriteState.phase = "move";
+    updateSpriteDirectionFromVector(dx, dy);
+
+    const room = dungeon[getIndex(currentX, currentY)];
+
+    // Exit gap percentage from render.js  :contentReference[oaicite:4]{index=4}
+    const { w, h } = getRoomDimensions();
+    const gap = EXIT_GAP_PERC;
+    
+
+    // EXIT CHECK (only allow transitions through gap)
+    // TOP
+    if (nextY < h * WALL_THICKNESS_PERC) {
+        if (room.exits.includes("UP")) {
+            const cx = nextX / w;
+            if (cx > 0.5 - gap/2 && cx < 0.5 + gap/2) {
+                return attemptScreenExit("UP");
+            }
+        }
+    }
+
+    // DOWN
+    if (nextY > h * (1 - WALL_THICKNESS_PERC)) {
+        if (room.exits.includes("DOWN")) {
+            const cx = nextX / w;
+            if (cx > 0.5 - gap/2 && cx < 0.5 + gap/2) {
+                return attemptScreenExit("DOWN");
+            }
+        }
+    }
+
+    // LEFT
+    if (nextX < w * WALL_THICKNESS_PERC) {
+        if (room.exits.includes("LEFT")) {
+            const cy = nextY / h;
+            if (cy > 0.5 - gap/2 && cy < 0.5 + gap/2) {
+                return attemptScreenExit("LEFT");
+            }
+        }
+    }
+
+    // RIGHT
+    if (nextX > w * (1 - WALL_THICKNESS_PERC)) {
+        if (room.exits.includes("RIGHT")) {
+            const cy = nextY / h;
+            if (cy > 0.5 - gap/2 && cy < 0.5 + gap/2) {
+                return attemptScreenExit("RIGHT");
+            }
+        }
+    }
+
+
+    
+
+    // WALL COLLISION
+    if (checkCollisions(nextX, nextY)) {
+        return; // blocked
+    }
+
+    // ALLOW MOVEMENT
+    playerSpriteState.x = nextX;
+    playerSpriteState.y = nextY;
+    renderPlayerSprite(document.getElementById("game"));
+}
+
+
+// =====================
+// EXIT TO NEXT SCREEN
+// =====================
+function attemptScreenExit(direction) {
+    const room = dungeon[getIndex(currentX, currentY)];
+    if (!room.exits.includes(direction)) return;
+
+    const [dx, dy] = DIRECTIONS[direction];
+    const targetX = currentX + dx;
+    const targetY = currentY + dy;
+
+    if (!isInBounds(targetX, targetY)) return;
+
+    currentX = targetX;
+    currentY = targetY;
+
+    // Place player at visual entry position for new screen
+    const entry = getEntryPositionForDirection(direction);
+    playerSpriteState.x = entry.x;
+    playerSpriteState.y = entry.y;
+
+    renderRoom();
+}
