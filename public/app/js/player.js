@@ -45,7 +45,7 @@ const DIR_TO_ROW = {
 
 function dbgState(label) {
     return false;
-    console.log(
+     console.log(
         `[DBG] ${label} | phase=${playerSpriteState.phase} anim=${playerIsAnimating} dir=${playerSpriteState.dir}`
     );
 }
@@ -53,7 +53,7 @@ function dbgState(label) {
 function dbgIdleCheck() {
     return false;
     const now = performance.now();
-    console.log(
+     console.log(
         `[IDLE-DBG] now=${now.toFixed(0)} phase=${playerSpriteState.phase}`
     );
 }

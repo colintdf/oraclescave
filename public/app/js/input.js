@@ -13,7 +13,7 @@ function isKeyDown(k) {
 }
 
 function isPlayerAtExitGap(dir) {
-    console.log("Checking exit gap for", dir);
+    // console.log("Checking exit gap for", dir);
     const { w, h } = getRoomDimensions();
     const px = playerSpriteState.x;
     const py = playerSpriteState.y;
@@ -33,7 +33,7 @@ function isPlayerAtExitGap(dir) {
             const xMax = gapEnd * w;
             const yMin = 0;
             const yMax = wallPxY + pad;
-            console.log(`UP gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            // console.log(`UP gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
             return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
         }
 
@@ -42,7 +42,7 @@ function isPlayerAtExitGap(dir) {
             const xMax = gapEnd * w;
             const yMin = h - wallPxY - pad;
             const yMax = h;
-            console.log(`DOWN gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            // console.log(`DOWN gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
             return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
         }
 
@@ -51,7 +51,7 @@ function isPlayerAtExitGap(dir) {
             const xMax = wallPxX + pad;
             const yMin = gapStart * h;
             const yMax = gapEnd * h;
-            console.log(`LEFT gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            // console.log(`LEFT gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
             return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
         }
 
@@ -60,7 +60,7 @@ function isPlayerAtExitGap(dir) {
             const xMax = w;
             const yMin = gapStart * h;
             const yMax = gapEnd * h;
-            console.log(`RIGHT gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            // console.log(`RIGHT gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
             return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
         }
     }
@@ -97,6 +97,7 @@ function movePlayer(direction) {
             currentRoom.enemyStatus = newStatus;
 
             if (newStatus === 'furious' || newStatus === 'hungry') {
+                rockfallAudio.play().catch(() => {});
                 currentRoom.storedExits = currentRoom.exits;
                 currentRoom.exits = [];
             }
@@ -163,6 +164,7 @@ function pickUpItem(forcedItem = null) {
     if (currentRoom.enemy && currentRoom.enemyStatus !== 'furious' && currentRoom.enemyStatus !== 'sleeping') {
         currentRoom.storedExits = currentRoom.exits;
         currentRoom.exits = [];
+        rockfallAudio.play().catch(() => {});
         currentRoom.enemyStatus = 'furious';
         showPopup(`The ${currentRoom.enemy} becomes furious and blocks the exits.`);
         renderRoom();
@@ -180,6 +182,7 @@ function pickUpItem(forcedItem = null) {
             currentRoom.enemyStatus = newStatus;
 
             if (newStatus === 'furious' || newStatus === 'hungry') {
+                rockfallAudio.play().catch(() => {});
                 currentRoom.storedExits = currentRoom.exits;
                 currentRoom.exits = [];
             }
@@ -368,7 +371,10 @@ function attackEnemy() {
 
     if (!currentRoom.enemy) return;
 
-    currentRoom.enemyStatus = 'furious';
+    if (currentRoom.enemyStatus !== 'furious') {
+        currentRoom.enemyStatus = 'furious';
+        rockfallAudio.play().catch(() => {});
+    }
     if (currentRoom.exits.length > 0) {
         currentRoom.storedExits = currentRoom.exits;
         currentRoom.exits = [];
@@ -517,6 +523,7 @@ window.addEventListener("keydown", (e) => {
     // Start movement loop if not running
     if (!window._movementActive) {
         window._movementActive = true;
+       // walkAudio.play();
         requestAnimationFrame(movementLoop);
     }
 
@@ -546,10 +553,11 @@ window.addEventListener("keyup", (e) => {
     if (window._movementKeys.size === 0) {
       //  window._movementActive = false;
     }
+   // walkAudio.pause();
 });
 
 function movementLoop(now) {
-   // console.log("Movement loop tick at", now);
+   // // console.log("Movement loop tick at", now);
 
     if (!window._movementActive) return;
 
@@ -597,6 +605,22 @@ function movementLoop(now) {
 
         dx = (right ? 1 : 0) - (left ? 1 : 0);
         dy = (down ? 1 : 0) - (up ? 1 : 0);
+    }
+
+
+    const isMoving = !ignoreInput && (dx !== 0 || dy !== 0);
+
+    if (isMoving) {
+        if (walkAudio.paused) {
+            // optional reset if you want the step loop from the start
+            // walkAudio.currentTime = 0;
+            walkAudio.play().catch(() => {});
+        }
+    } else {
+        if (!walkAudio.paused) {
+            walkAudio.pause();
+            walkAudio.currentTime = 0;
+        }
     }
 
     // ------------------------------------------------------------

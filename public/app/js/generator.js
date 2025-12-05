@@ -6,7 +6,55 @@ let collectAudio = new Audio("app/sound/collect.wav");
 collectAudio.volume = 0.5;
 
 let walkAudio = new Audio("app/sound/footsteps.wav");
-walkAudio.volume = 0.5;
+walkAudio.volume = 0.2;
+
+let randomSoundsDir = 'app/sound/randomsounds/';
+let randomSoundFiles = [
+    'moan.wav',
+    'monsters.wav'
+];
+let randomSoundAudios = randomSoundFiles.map(file => {
+    let audio = new Audio(randomSoundsDir + file);
+    audio.volume = 0.3;
+    return audio;
+});
+let rockfallAudio = new Audio("app/sound/rockfall.wav");
+rockfallAudio.volume = 0.5;
+
+// =====================================================
+// OCCASIONAL RANDOM BACKGROUND NOISE (no overlap)
+// =====================================================
+let ambientActive = false;
+let ambientPlaying = false;
+
+function scheduleAmbientNoise() {
+    console.log("Scheduling ambient noise...");
+    if (!ambientActive || ambientPlaying) return;
+    // 15–45 second delay between ambient sounds
+    const delay = 15000 + Math.random() * 30000;
+    console.log("Ambient noise scheduled.", delay);
+
+    setTimeout(() => {
+        console.log("Playing ambient noise...");
+        if (!ambientActive || ambientPlaying) return;
+        console.log("Ambient noise playing.");
+        const audio = randomSoundAudios[Math.floor(Math.random() * randomSoundAudios.length)];
+        ambientPlaying = true;
+        console.log("Ambient audio selected:", audio.src);
+        audio.currentTime = 0;
+        audio.play()
+            .catch(() => {
+                ambientPlaying = false;
+                scheduleAmbientNoise();
+            });
+
+        audio.onended = () => {
+            ambientPlaying = false;
+            scheduleAmbientNoise();
+        };
+
+    }, delay);
+}
 
 
 // ===============================
@@ -122,9 +170,7 @@ function placeEnemies() {
             dungeon[pos].enemyStatus = BOSS_TYPES[bossIndex].status;
             dungeon[pos].enemyScore = BOSS_TYPES[bossIndex].score;
 
-            console.log(
-                `Boss ${bossIndex + 1}: ${dungeon[pos].enemy} placed in room ${pos} with ${dungeon[pos].enemyHealth} health and ${dungeon[pos].enemyStrength} strength`
-            );
+            // console.log(`Boss ${bossIndex + 1}: ${dungeon[pos].enemy} placed in room ${pos} with ${dungeon[pos].enemyHealth} health and ${dungeon[pos].enemyStrength} strength`);
 
             gameStatus.totalBosses += 1;
         }
@@ -185,13 +231,11 @@ function placeEnemies() {
         }
     });
 
-    console.log(
-        'Placed ' + dungeon.filter(r => r.enemy).length + ' enemies in the dungeon'
-    );
+    console.log( 'Placed ' + dungeon.filter(r => r.enemy).length + ' enemies in the dungeon');
 
     ENEMY_TYPES.forEach(enemyType => {
         const count = dungeon.filter(room => room.enemy === enemyType.name).length;
-        console.log(`Placed ${count} ${enemyType.name}(s) in the dungeon`);
+        // console.log(`Placed ${count} ${enemyType.name}(s) in the dungeon`);
     });
 }
 
@@ -213,9 +257,7 @@ function placeWeapons() {
         }
     });
 
-    console.log(
-        'Placed ' + dungeon.filter(r => r.weapon).length + ' weapons in the dungeon'
-    );
+   
 }
 
 // ===============================
@@ -289,7 +331,7 @@ function generateDungeon() {
         generateRoomAppearance(room);
     });
 
-    console.log("Dungeon generation complete.");
+    // console.log("Dungeon generation complete.");
 }
 
 // ===============================
@@ -307,6 +349,11 @@ function startGame(difficulty) {
             showPopup("Background audio playback was prevented. Please interact with the game to enable sound.", true);
         });
     }
+
+    // Start occasional ambient noise
+    ambientActive = true;
+    scheduleAmbientNoise();
+
 
     requestAnimationFrame(idleLoop);
 

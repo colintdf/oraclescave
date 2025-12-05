@@ -100,10 +100,10 @@ function calculateVictoryChance(player, room) {
 
 
 function renderRoom() {
-    console.log(`Rendering room at (${currentX}, ${currentY})`);
+    // console.log(`Rendering room at (${currentX}, ${currentY})`);
     // if enemy log status
     if (dungeon[getIndex(currentX, currentY)].enemy) {
-        console.log(`Enemy status: ${dungeon[getIndex(currentX, currentY)].enemyStatus}`);
+        // console.log(`Enemy status: ${dungeon[getIndex(currentX, currentY)].enemyStatus}`);
     }
     clearPopups();
 
@@ -192,10 +192,10 @@ function renderRoom() {
 // WALL RENDERING (canvas-based)
 // =============================
 function renderWallFromAppearance(room, dir, gameDiv) {
-    console.log(`Rendering wall ${dir} for room at (${room.x}, ${room.y})`);
+    // console.log(`Rendering wall ${dir} for room at (${room.x}, ${room.y})`);
     const segments = room.appearance.walls[dir];
     if (!segments || !segments.length) return;
-    console.log(`  Found ${segments.length} wall segments to render.`);
+    // console.log(`  Found ${segments.length} wall segments to render.`);
     const width = gameDiv.clientWidth || 1280;
     const height = gameDiv.clientHeight || 720;
 
@@ -245,14 +245,14 @@ const hasExit = (Array.isArray(room.exits) && room.exits.includes(dir)) ||
         (room.enemyStatus === 'furious' || room.enemyStatus === 'hungry') &&
         hasExit
     ) {
-        console.log('room.appearance.blockedExitRocks:', room.appearance.blockedExitRocks);
+        // console.log('room.appearance.blockedExitRocks:', room.appearance.blockedExitRocks);
         if (!room.appearance) room.appearance = {};
         if (!room.appearance.blockedExitRocks) room.appearance.blockedExitRocks = {};
         if (!Array.isArray(room.appearance.blockedExitRocks[dir])) {
-            console.log(`Generating blocked exit rock data for direction: ${dir}`);
+            // console.log(`Generating blocked exit rock data for direction: ${dir}`);
             room.appearance.blockedExitRocks[dir] = generateBlockedExitRockData(dir);
         }
-        console.log('Drawing blocked exit rocks for', dir, room.appearance.blockedExitRocks[dir]);
+        // console.log('Drawing blocked exit rocks for', dir, room.appearance.blockedExitRocks[dir]);
         drawBlockedExitRocks(ctx, dir, room);
     }
 
@@ -296,7 +296,7 @@ function drawRock(ctx, x, y, size, verts, color) {
 
 
 function generateBlockedExitRockData(dir) {
-    console.log(`Generating blocked exit rock data for direction: ${dir}`);
+    // console.log(`Generating blocked exit rock data for direction: ${dir}`);
 
     const { w, h } = getRoomDimensions();
 
@@ -1314,7 +1314,7 @@ function showPopup(message, requireOk = false) {
 
 // Remove all popups on room change:
 function clearPopups() {
-    console.log("Clearing popups");
+    // console.log("Clearing popups");
    // const container = document.getElementById("game-popup-container");
    // container.innerHTML = "";
 }
@@ -1373,5 +1373,5 @@ function debugDrawRockTest() {
     ctx.fillStyle = "rgba(255,0,0,0.6)";
     ctx.fillRect(width * 0.4, height * 0.05, width * 0.2, height * 0.2);
 
-    console.log("DEBUG ROCK TEST DRAWN");
+    // console.log("DEBUG ROCK TEST DRAWN");
 }
