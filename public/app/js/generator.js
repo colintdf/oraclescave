@@ -11,7 +11,8 @@ walkAudio.volume = 0.2;
 let randomSoundsDir = 'app/sound/randomsounds/';
 let randomSoundFiles = [
     'moan.wav',
-    'monsters.wav'
+    'monsters.wav',
+    'scream.wav'
 ];
 let randomSoundAudios = randomSoundFiles.map(file => {
     let audio = new Audio(randomSoundsDir + file);
