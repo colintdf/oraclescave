@@ -42,11 +42,14 @@ function scheduleAmbientNoise() {
         const audio = randomSoundAudios[Math.floor(Math.random() * randomSoundAudios.length)];
         ambientPlaying = true;
         console.log("Ambient audio selected:", audio.src);
+        // randomise volume between 0.1 and 0.3 for each ambient play
+        audio.volume = 0.1 + Math.random() * 0.2;
+
         audio.currentTime = 0;
         audio.play()
             .catch(() => {
-                ambientPlaying = false;
-                scheduleAmbientNoise();
+            ambientPlaying = false;
+            scheduleAmbientNoise();
             });
 
         audio.onended = () => {
