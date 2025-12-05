@@ -425,3 +425,26 @@ function idleLoop() {
 
     requestAnimationFrame(idleLoop);
 }
+
+
+function hasArtifactForExit(room) {
+    if (!room.dungeonExits || room.dungeonExits.length === 0) return null;
+
+    const exit = room.dungeonExits[0];
+    const needed = exit.activationArtifact;
+
+    const hasIt =
+        player.inventory.otherItem &&
+        player.inventory.otherItem.some(o => o.name === needed);
+
+    return hasIt ? exit : null;
+}
+
+function completeGame(exitObj) {
+    showPopup("You hold the " + exitObj.activationArtifact + ". The " + exitObj.name + " activates!", true);
+
+    setTimeout(() => {
+        showPopup("You escape the Oracle's Dungeon!", true);
+        setTimeout(() => location.reload(), 2000);
+    }, 1200);
+}

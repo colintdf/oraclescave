@@ -100,6 +100,11 @@ function calculateVictoryChance(player, room) {
 
 
 function renderRoom() {
+    console.log(`Rendering room at (${currentX}, ${currentY})`);
+    // if enemy log status
+    if (dungeon[getIndex(currentX, currentY)].enemy) {
+        console.log(`Enemy status: ${dungeon[getIndex(currentX, currentY)].enemyStatus}`);
+    }
     clearPopups();
 
     const gameDiv = document.getElementById('game');
@@ -179,7 +184,7 @@ function renderRoom() {
     setTimeout(enableAutoDepthSorting, 50);
     positionPopupContainer();
 
-
+   //debugDrawRockTest();
 }
 
 
@@ -187,9 +192,10 @@ function renderRoom() {
 // WALL RENDERING (canvas-based)
 // =============================
 function renderWallFromAppearance(room, dir, gameDiv) {
+    console.log(`Rendering wall ${dir} for room at (${room.x}, ${room.y})`);
     const segments = room.appearance.walls[dir];
     if (!segments || !segments.length) return;
-
+    console.log(`  Found ${segments.length} wall segments to render.`);
     const width = gameDiv.clientWidth || 1280;
     const height = gameDiv.clientHeight || 720;
 
@@ -204,6 +210,9 @@ function renderWallFromAppearance(room, dir, gameDiv) {
     const ctx = canvas.getContext('2d');
     const base = room.appearance.wallPalette;
 
+    // ===============================
+    // Draw wall layers
+    // ===============================
     segments.forEach((poly, index) => {
         if (!poly || !poly.length) return;
 
@@ -228,7 +237,138 @@ function renderWallFromAppearance(room, dir, gameDiv) {
         ctx.restore();
     });
 
+const hasExit = (Array.isArray(room.exits) && room.exits.includes(dir)) ||
+                (Array.isArray(room.storedExits) && room.storedExits.includes(dir));
+
+    if (
+        room.enemy &&
+        (room.enemyStatus === 'furious' || room.enemyStatus === 'hungry') &&
+        hasExit
+    ) {
+        console.log('room.appearance.blockedExitRocks:', room.appearance.blockedExitRocks);
+        if (!room.appearance) room.appearance = {};
+        if (!room.appearance.blockedExitRocks) room.appearance.blockedExitRocks = {};
+        if (!Array.isArray(room.appearance.blockedExitRocks[dir])) {
+            console.log(`Generating blocked exit rock data for direction: ${dir}`);
+            room.appearance.blockedExitRocks[dir] = generateBlockedExitRockData(dir);
+        }
+        console.log('Drawing blocked exit rocks for', dir, room.appearance.blockedExitRocks[dir]);
+        drawBlockedExitRocks(ctx, dir, room);
+    }
+
+    ctx.restore();
+
+
     gameDiv.appendChild(canvas);
+}
+
+
+function drawBlockedExitRocks(ctx, dir, room) {
+    const stones = room.appearance.blockedExitRocks?.[dir];
+    if (!stones) return;
+
+    stones.forEach(stone => {
+        drawRock(ctx, stone.x, stone.y, stone.size, stone.verts, stone.color);
+    });
+}
+function drawRock(ctx, x, y, size, verts, color) {
+    ctx.beginPath();
+
+    const first = verts[0];
+    ctx.moveTo(
+        x + first.dist * Math.cos(first.angle),
+        y + first.dist * Math.sin(first.angle)
+    );
+
+    for (let i = 1; i < verts.length; i++) {
+        const p = verts[i];
+        ctx.lineTo(
+            x + p.dist * Math.cos(p.angle),
+            y + p.dist * Math.sin(p.angle)
+        );
+    }
+
+    ctx.closePath();
+
+    ctx.fillStyle = color;
+    ctx.fill();
+}
+
+
+function generateBlockedExitRockData(dir) {
+    console.log(`Generating blocked exit rock data for direction: ${dir}`);
+
+    const { w, h } = getRoomDimensions();
+
+    const gapStart = 0.5 - EXIT_GAP_PERC / 2;
+    const gapEnd   = 0.5 + EXIT_GAP_PERC / 2;
+
+    const wallY = WALL_THICKNESS_PERC * h;
+    const wallX = WALL_THICKNESS_PERC * w;
+
+    const chunks = 80;
+    const stones = [];
+
+    // Base palette from appearance
+    const base = BASE_BROWN; 
+    // hue/sat/light ∈ the real palette you already use for walls
+
+    for (let i = 0; i < chunks; i++) {
+        const t = Math.random();
+
+        let px, py;
+
+        if (dir === 'UP') {
+            px = (gapStart + t * (gapEnd - gapStart)) * w;
+            py = Math.random() * wallY;
+        }
+        else if (dir === 'DOWN') {
+            px = (gapStart + t * (gapEnd - gapStart)) * w;
+            py = h - wallY + Math.random() * wallY;
+        }
+        else if (dir === 'LEFT') {
+            px = Math.random() * wallX;
+            py = (gapStart + t * (gapEnd - gapStart)) * h;
+        }
+        else if (dir === 'RIGHT') {
+            px = w - wallX + Math.random() * wallX;
+            py = (gapStart + t * (gapEnd - gapStart)) * h;
+        }
+
+        const size = 12 + Math.random() * 22;
+
+        // RANDOMISED COLOUR that stays consistent once generated
+        const lightVariation = base.light + (-10 + Math.floor(Math.random() * 20));
+        const colour = `hsl(${base.hue}, ${base.sat}%, ${lightVariation}%)`;
+
+        stones.push({
+            x: px,
+            y: py,
+            size: size,
+            verts: generateRockPolygon(size),
+            color: colour          // <-- STORED forever
+        });
+    }
+
+    return stones;
+}
+
+
+
+function generateRockPolygon(size) {
+    const points = 5 + Math.floor(Math.random() * 4);
+    const angleStep = (Math.PI * 2) / points;
+    const verts = [];
+
+    for (let i = 0; i < points; i++) {
+        const dist = size * (0.6 + Math.random() * 0.4); // stable irregularity
+        verts.push({
+            angle: i * angleStep,
+            dist
+        });
+    }
+
+    return verts;
 }
 
 function renderEnemy(room, gameDiv) {
@@ -580,6 +720,17 @@ function renderInventory() {
                 // ==========================================================
                 i.addEventListener("click", () => {
 
+                    // ======================================================
+                    // EXIT ARTEFACT HANDLING
+                    // ======================================================
+                    const room = dungeon[getIndex(currentX, currentY)];
+                    const exitObj = hasArtifactForExit(room);
+
+                    if (exitObj && item.name === exitObj.activationArtifact) {
+                        completeGame(exitObj);
+                        return;
+                    }
+
                     // NON-usable items
                     if (!isFood && !isHealth) return;
 
@@ -819,7 +970,9 @@ function generateObjectPositions(room) {
 
 function generateRoomAppearance(room) {
     if (!room.appearance) room.appearance = {};
-
+    if (!room.appearance.blockedExitRocks) {
+        room.appearance.blockedExitRocks = {};
+    }
     room.appearance.wallPalette = BASE_BROWN;
 
     room.appearance.walls = {
@@ -835,6 +988,18 @@ function generateRoomAppearance(room) {
     if (!room.appearance.objectPositions) {
         room.appearance.objectPositions = generateObjectPositions(room);
     }
+    ['UP', 'DOWN', 'LEFT', 'RIGHT'].forEach(dir => {
+        if (
+            room.enemy &&
+            (room.enemyStatus === 'furious' || room.enemyStatus === 'hungry') &&
+            room.exits.includes(dir)
+        ) {
+            if (!room.appearance.blockedExitRocks[dir]) {
+                room.appearance.blockedExitRocks[dir] =
+                    generateBlockedExitRockData(dir);
+            }
+        }
+    });
 }
 
 function generateFloorPatches() {
@@ -1075,7 +1240,26 @@ function positionEnemyHealthBar(enemyImg, bar) {
     bar.style.top = (y - 12) + 'px';                    // slight offset upward
 }
 function showPopup(message, requireOk = false) {
+
     const container = document.getElementById("game-popup-container");
+
+    // Deduplication: prevent repeating identical popup
+    if (container && container.lastElementChild) {
+        const last = container.lastElementChild;
+        const lastMsgEl = last.querySelector('div');
+        const lastText = lastMsgEl ? (lastMsgEl.textContent || '').trim() : (last.textContent || '').trim();
+
+        if (lastText === String(message).trim()) {
+            return () => {};
+        }
+    }
+
+    // MAX POPUP LOGIC: enforce maximum of 5 popups
+    if (container.children.length >= 5) {
+        // Remove the oldest popup (the first child)
+        container.firstElementChild.remove();
+    }
+
     const overlay = document.getElementById("game-popup-overlay");
 
     const box = document.createElement("div");
@@ -1094,18 +1278,18 @@ function showPopup(message, requireOk = false) {
     let timeout = null;
 
     if (requireOk) {
-        // TURN ON OVERLAY
         overlay.style.display = "block";
-        positionPopupContainer(); // makes overlay cover the game
+        positionPopupContainer();
 
         const btn = document.createElement("button");
         btn.textContent = "OK";
         btn.onclick = () => {
-            overlay.style.display = "none"; // turn overlay off
+            overlay.style.display = "none";
             box.remove();
             positionPopupContainer();
         };
         box.appendChild(btn);
+
     } else {
         timeout = setTimeout(() => {
             box.remove();
@@ -1124,6 +1308,7 @@ function showPopup(message, requireOk = false) {
         positionPopupContainer();
     };
 }
+
 
 
 
@@ -1162,3 +1347,31 @@ function stackPopups() {
 
 
 window.addEventListener("resize", positionPopupContainer);
+function debugDrawRockTest() {
+    const gameDiv = document.getElementById('game');
+    const width = gameDiv.clientWidth || 1280;
+    const height = gameDiv.clientHeight || 720;
+
+    let testCanvas = document.getElementById("rock-debug");
+    if (!testCanvas) {
+        testCanvas = document.createElement("canvas");
+        testCanvas.id = "rock-debug";
+        testCanvas.style.position = "absolute";
+        testCanvas.style.left = "0";
+        testCanvas.style.top = "0";
+        testCanvas.style.zIndex = "999999"; // ABOVE EVERYTHING
+        testCanvas.style.pointerEvents = "none";
+        gameDiv.appendChild(testCanvas);
+    }
+
+    testCanvas.width = width;
+    testCanvas.height = height;
+
+    const ctx = testCanvas.getContext("2d");
+
+    // Giant red square test
+    ctx.fillStyle = "rgba(255,0,0,0.6)";
+    ctx.fillRect(width * 0.4, height * 0.05, width * 0.2, height * 0.2);
+
+    console.log("DEBUG ROCK TEST DRAWN");
+}

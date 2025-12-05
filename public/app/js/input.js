@@ -6,9 +6,66 @@
 window._movementKeys = new Set();
 window._lastFrameTime = performance.now();
 window._movementActive = false;
+const PLAYER_COLLISION_PAD = 40; // pixels: adjust slightly if needed
 
 function isKeyDown(k) {
     return window._movementKeys.has(k);
+}
+
+function isPlayerAtExitGap(dir) {
+    console.log("Checking exit gap for", dir);
+    const { w, h } = getRoomDimensions();
+    const px = playerSpriteState.x;
+    const py = playerSpriteState.y;
+
+    const gapStart = 0.5 - EXIT_GAP_PERC / 2;
+    const gapEnd   = 0.5 + EXIT_GAP_PERC / 2;
+
+    const wallPxY = WALL_THICKNESS_PERC * h;
+    const wallPxX = WALL_THICKNESS_PERC * w;
+
+    // Pad the hitbox *inward* to prevent diagonal slipping
+    const pad = PLAYER_COLLISION_PAD;
+
+    switch (dir) {
+        case 'UP': {
+            const xMin = gapStart * w;
+            const xMax = gapEnd * w;
+            const yMin = 0;
+            const yMax = wallPxY + pad;
+            console.log(`UP gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
+        }
+
+        case 'DOWN': {
+            const xMin = gapStart * w;
+            const xMax = gapEnd * w;
+            const yMin = h - wallPxY - pad;
+            const yMax = h;
+            console.log(`DOWN gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
+        }
+
+        case 'LEFT': {
+            const xMin = 0;
+            const xMax = wallPxX + pad;
+            const yMin = gapStart * h;
+            const yMax = gapEnd * h;
+            console.log(`LEFT gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
+        }
+
+        case 'RIGHT': {
+            const xMin = w - wallPxX - pad;
+            const xMax = w;
+            const yMin = gapStart * h;
+            const yMax = gapEnd * h;
+            console.log(`RIGHT gap box: x[${xMin}-${xMax}] y[${yMin}-${yMax}]`);
+            return px >= xMin && px <= xMax && py >= yMin && py <= yMax;
+        }
+    }
+
+    return false;
 }
 
 
@@ -31,7 +88,7 @@ function movePlayer(direction) {
     // Sleeping enemy wake-up check
     if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
         if (Math.random() < 0.5) {
-            showPopup('The ' + currentRoom.enemy + ' wakes up!', true);
+            showPopup('The ' + currentRoom.enemy + ' wakes up!');
             let newStatus;
             do {
                 newStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
@@ -107,14 +164,14 @@ function pickUpItem(forcedItem = null) {
         currentRoom.storedExits = currentRoom.exits;
         currentRoom.exits = [];
         currentRoom.enemyStatus = 'furious';
-        showPopup(`The ${currentRoom.enemy} becomes furious and blocks the exits.`, true);
+        showPopup(`The ${currentRoom.enemy} becomes furious and blocks the exits.`);
         renderRoom();
         return;
     }
 
     if (currentRoom.enemy && currentRoom.enemyStatus === 'sleeping') {
         if (Math.random() < 0.8) {
-            showPopup('The ' + currentRoom.enemy + ' wakes up!', true);
+            showPopup('The ' + currentRoom.enemy + ' wakes up!');
             let newStatus;
             do {
                 newStatus = ENEMY_STATUSES[Math.floor(Math.random() * ENEMY_STATUSES.length)];
@@ -126,7 +183,7 @@ function pickUpItem(forcedItem = null) {
                 currentRoom.storedExits = currentRoom.exits;
                 currentRoom.exits = [];
             }
-
+            
             renderRoom();
             return;
         }
@@ -292,6 +349,8 @@ function pickUpItem(forcedItem = null) {
     if (wasOther) {
         currentRoom.otherItem = null;
     }
+    
+    collectAudio.play();
 
     renderPlayerStatus();
     renderInventory();
@@ -310,6 +369,11 @@ function attackEnemy() {
     if (!currentRoom.enemy) return;
 
     currentRoom.enemyStatus = 'furious';
+    if (currentRoom.exits.length > 0) {
+        currentRoom.storedExits = currentRoom.exits;
+        currentRoom.exits = [];
+    }
+
 
     let playerDamage = Math.floor(Math.random() * player.weaponstrength);
     playerDamage = Math.floor(playerDamage * DIFFICULTY_MULTIPLIERS[player.difficulty].strength);
@@ -456,10 +520,22 @@ window.addEventListener("keydown", (e) => {
         requestAnimationFrame(movementLoop);
     }
 
-    if (e.key === "f") attackEnemy();
-    if (e.key === "p") pickUpItem();
-    // use and give?
+    if (e.key === "f" || e.key === "F") attackEnemy();
+    if (e.key === "p" || e.key === "P") pickUpItem();
 
+    if (e.key === "u" || e.key === "U") {
+        const room = dungeon[getIndex(currentX, currentY)];
+        const exitObj = hasArtifactForExit(room);
+
+        if (exitObj) {
+            completeGame(exitObj);
+            return;
+        }
+
+    // No artefact for this exit, fall through silently
+}
+
+   
 });
 
 
@@ -472,40 +548,104 @@ window.addEventListener("keyup", (e) => {
     }
 });
 
-// ===========================
-// MAIN MOVEMENT LOOP
-// ===========================
-// ===========================
-// MAIN MOVEMENT LOOP
-// ===========================
 function movementLoop(now) {
+   // console.log("Movement loop tick at", now);
+
     if (!window._movementActive) return;
 
+    const room = dungeon[getIndex(currentX, currentY)];
+    const enemyBlocking = room.enemy &&
+        (room.enemyStatus === 'furious' || room.enemyStatus === 'hungry');
 
-    // STOP ALL KEYBOARD MOVEMENT DURING EXIT TRANSITIONS
-    if (playerIsAnimating) {
-        window._movementActive = false;
-        window._movementKeys.clear();
-        return; // do NOT continue into movement logic
+    // SAFETY: If animation is stuck but we are NOT transitioning, reset it
+    if (enemyBlocking && playerIsAnimating && playerSpriteState.phase === "toExit") {
+        console.warn("Blocked transition cleaned up");
+        playerIsAnimating = false;
+        playerSpriteState.phase = "idle";
+    }
+
+    // ============================================================
+    // FIX: NEVER STOP THE MOVEMENT LOOP
+    // Old code incorrectly did:
+    //   window._movementActive = false;
+    //   window._movementKeys.clear();
+    //   return;
+    //
+    // New behaviour: If we are in a transition animation,
+    // movement keys are ignored but the loop continues running.
+    // ============================================================
+    let ignoreInput = false;
+    if (playerIsAnimating && 
+        (playerSpriteState.phase === "toExit" || playerSpriteState.phase === "toCenter")) {
+        ignoreInput = true;
     }
 
     let dt = (now - window._lastFrameTime) / 1000;
     window._lastFrameTime = now;
+    if (dt > 0.05) dt = 0.05;
 
-    // Clamp dt to avoid giant jumps after a pause / tab switch
-    if (dt > 0.05) {
-        dt = 0.05; // max 50 ms per frame
+    // ------------------------------------------------------------
+    // Movement vector
+    // ------------------------------------------------------------
+    let dx = 0, dy = 0;
+
+    if (!ignoreInput) {
+        const up    = isKeyDown("ArrowUp") || isKeyDown("w") || isKeyDown("W");
+        const down  = isKeyDown("ArrowDown") || isKeyDown("s") || isKeyDown("S");
+        const left  = isKeyDown("ArrowLeft") || isKeyDown("a") || isKeyDown("A");
+        const right = isKeyDown("ArrowRight") || isKeyDown("d") || isKeyDown("D");
+
+        dx = (right ? 1 : 0) - (left ? 1 : 0);
+        dy = (down ? 1 : 0) - (up ? 1 : 0);
     }
 
-    // Movement vector from pressed keys
-    const up    = isKeyDown("ArrowUp") || isKeyDown("w") || isKeyDown("W");
-    const down  = isKeyDown("ArrowDown") || isKeyDown("s") || isKeyDown("S");
-    const left  = isKeyDown("ArrowLeft") || isKeyDown("a") || isKeyDown("A");
-    const right = isKeyDown("ArrowRight") || isKeyDown("d") || isKeyDown("D");
+    // ------------------------------------------------------------
+    // BLOCK EXIT movement only when moving TOWARD gap
+    // ------------------------------------------------------------
+    if (room.enemy &&
+    (room.enemyStatus === 'furious' || room.enemyStatus === 'hungry')) {
 
-    let dx = (right ? 1 : 0) - (left ? 1 : 0);
-    let dy = (down ? 1 : 0) - (up ? 1 : 0);
+    // Determine ALL attempted directions, not just one
+    const dirs = [];
 
+    if (dy < 0) dirs.push('UP');
+    if (dy > 0) dirs.push('DOWN');
+    if (dx < 0) dirs.push('LEFT');
+    if (dx > 0) dirs.push('RIGHT');
+
+    // Check each movement component
+    for (const d of dirs) {
+        const hasExit = (room.exits && room.exits.includes(d)) ||
+                (room.storedExits && room.storedExits.includes(d));
+        if (!hasExit) continue;
+
+        // Detect if THIS component is pushing toward the exit gap
+        const movingToward =
+            (d === 'UP'    && dy < 0) ||
+            (d === 'DOWN'  && dy > 0) ||
+            (d === 'LEFT'  && dx < 0) ||
+            (d === 'RIGHT' && dx > 0);
+
+
+
+        if (movingToward && isPlayerAtExitGap(d)) {
+            showPopup('The ' + room.enemy + ' is blocking the exits!', false);
+
+            // Stop animation so sprite doesn't run-on-the-spot
+            playerSpriteState.phase = "idle";
+            playerIsAnimating = false;
+
+            // IMPORTANT: Do NOT stop the loop, only this movement frame
+            requestAnimationFrame(movementLoop);
+            return;
+        }
+    }
+}
+
+
+    // ------------------------------------------------------------
+    // Animation state
+    // ------------------------------------------------------------
     if (!playerIsAnimating) {
         if (dx !== 0 || dy !== 0) {
             if (playerSpriteState.phase !== "move") {
@@ -520,7 +660,9 @@ function movementLoop(now) {
         }
     }
 
-
+    // ------------------------------------------------------------
+    // Movement
+    // ------------------------------------------------------------
     if (dx !== 0 || dy !== 0) {
         tryFreeMove(dx, dy, dt);
     } else {
@@ -528,12 +670,9 @@ function movementLoop(now) {
             playerSpriteState.phase = "idle";
             playerSpriteState.animStart = 0;
             playerSpriteState.frame = 0;
-
-            // Force immediate redraw
             renderPlayerSprite(document.getElementById("game"));
         }
     }
-
 
     requestAnimationFrame(movementLoop);
 }
@@ -693,7 +832,9 @@ function tryFreeMove(dx, dy, dt) {
     const nextY = playerSpriteState.y + dy * speed;
 
 
-  
+    if (isCollidingWithEnemyFeet(nextX, nextY)) {
+        return;
+    }
 
 
     // Set movement animation
@@ -759,7 +900,46 @@ function tryFreeMove(dx, dy, dt) {
     // ALLOW MOVEMENT
     playerSpriteState.x = nextX;
     playerSpriteState.y = nextY;
+
+    // Auto-pickup any item you walk over
+    autoPickupAtCurrentPosition();
+
+
     renderPlayerSprite(document.getElementById("game"));
+}
+
+
+function isCollidingWithEnemyFeet(nextX, nextY) {
+    const game = document.getElementById('game');
+    if (!game) return false;
+
+    const enemyEls = game.querySelectorAll('.sprite-wrapper.enemy');
+    if (!enemyEls.length) return false;
+
+    const gameRect = game.getBoundingClientRect();
+
+    for (const el of enemyEls) {
+        const rect = el.getBoundingClientRect();
+
+        // Enemy rect in game coordinates
+        const left   = rect.left - gameRect.left;
+        const top    = rect.top  - gameRect.top;
+        const right  = left + rect.width;
+        const bottom = top  + rect.height;
+
+        // Bottom 20px collision band
+        const bandTop    = bottom - 40;
+        const bandBottom = bottom - 20;
+
+        const insideX = nextX >= left && nextX <= right;
+        const insideY = nextY >= bandTop && nextY <= bandBottom;
+
+        if (insideX && insideY) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 
@@ -785,4 +965,93 @@ function attemptScreenExit(direction) {
     playerSpriteState.y = entry.y;
 
     renderRoom();
+}
+
+function autoPickupAtCurrentPosition() {
+    const room = dungeon[getIndex(currentX, currentY)];
+    if (!room.appearance || !room.appearance.objectPositions) return;
+
+    const { w, h } = getRoomDimensions();
+    const px = playerSpriteState.x;
+    const py = playerSpriteState.y;
+
+    const pickupRadius = 40;
+
+    const types = [
+        { key: 'weapon',    name: room.weapon },
+        { key: 'shield',    name: room.shield },
+        { key: 'food',      name: room.food },
+        { key: 'health',    name: room.health },
+        { key: 'otherItem', name: room.otherItem }
+    ];
+
+    for (const entry of types) {
+        if (!entry.name) continue;
+
+        const pos = room.appearance.objectPositions[entry.key];
+        if (!pos) continue;
+
+        const ix = pos.x * w;
+        const iy = pos.y * h;
+
+        const hitX = Math.abs(px - ix) <= pickupRadius;
+        const hitY = Math.abs(py - iy) <= pickupRadius;
+
+        if (!hitX || !hitY) continue;
+
+        // If this is a weapon, apply strength comparison BEFORE pickup
+        if (entry.key === 'weapon') {
+            if (!isBetterWeapon(entry.name, room)) return;
+        }
+
+        // If this is a shield, apply strength comparison BEFORE pickup
+        if (entry.key === 'shield') {
+            if (!isBetterShield(entry.name, room)) return;
+        }
+
+        // For everything else OR if better -> do the usual pickup
+        pickUpItem(entry.name);
+    }
+}
+
+
+function isBetterWeapon(itemName, room) {
+    const def = WEAPON_ITEMS.find(w => w.name === itemName);
+    if (!def) return true; // Unknown? Let pickup happen.
+
+    const candidateStrength = room.weaponStrength ?? def.strength;
+    const candidateUses = room.weaponUses ?? def.uses;
+
+    const currentStrength = player.weaponstrength || 10;
+    const currentUsesRaw  = player.weaponuses ?? -1;
+    const candidateUsesRaw = candidateUses ?? -1;
+
+    const normCurrent   = currentUsesRaw   === -1 ? Number.MAX_SAFE_INTEGER : currentUsesRaw;
+    const normCandidate = candidateUsesRaw === -1 ? Number.MAX_SAFE_INTEGER : candidateUsesRaw;
+
+    return (
+        candidateStrength > currentStrength ||
+        (candidateStrength === currentStrength && normCandidate > normCurrent)
+    );
+}
+
+
+function isBetterShield(itemName, room) {
+    const def = SHIELD_ITEMS.find(s => s.name === itemName);
+    if (!def) return true;
+
+    const candidateStrength = room.shieldStrength ?? def.strength;
+    const candidateUses = room.shieldUses ?? def.uses;
+
+    const currentStrength = player.shieldstrength || 0;
+    const currentUsesRaw  = player.shielduses ?? -1;
+    const candidateUsesRaw = candidateUses ?? -1;
+
+    const normCurrent   = currentUsesRaw   === -1 ? Number.MAX_SAFE_INTEGER : currentUsesRaw;
+    const normCandidate = candidateUsesRaw === -1 ? Number.MAX_SAFE_INTEGER : candidateUsesRaw;
+
+    return (
+        candidateStrength > currentStrength ||
+        (candidateStrength === currentStrength && normCandidate > normCurrent)
+    );
 }

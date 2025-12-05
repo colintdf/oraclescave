@@ -1,3 +1,14 @@
+let bgAudio = new Audio("app/sound/background.wav");
+bgAudio.loop = true;
+bgAudio.volume = 0.2; // adjust to taste
+
+let collectAudio = new Audio("app/sound/collect.wav");
+collectAudio.volume = 0.5;
+
+let walkAudio = new Audio("app/sound/footsteps.wav");
+walkAudio.volume = 0.5;
+
+
 // ===============================
 // ADD EXIT BETWEEN ROOMS
 // ===============================
@@ -288,6 +299,15 @@ function startGame(difficulty) {
     player.difficulty = difficulty;
 
     player.health = player.health * DIFFICULTY_MULTIPLIERS[player.difficulty].health;
+
+    // START BACKGROUND AUDIO (safe and repeatable)
+    if (bgAudio) {
+        bgAudio.currentTime = 0;   // always restart from the beginning
+        bgAudio.play().catch(() => {
+            showPopup("Background audio playback was prevented. Please interact with the game to enable sound.", true);
+        });
+    }
+
     requestAnimationFrame(idleLoop);
 
     generateDungeon();
